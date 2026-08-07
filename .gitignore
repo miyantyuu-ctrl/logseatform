@@ -2,4 +2,7 @@
 !/テストフォーム/
 !/index-pc.html
 !/.gitignore
+!/edicode-test-system/
+/edicode-test-system/node_modules/
+/edicode-test-system/dist/
 .DS_Store

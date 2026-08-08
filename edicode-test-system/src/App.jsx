@@ -97,6 +97,12 @@ export default function App() {
   const [answer1, setAnswer1] = useState({ part: '', symptom: '', reason: '' });
   const [answer2, setAnswer2] = useState({ doActions: '', okCriteria: '', nextAction: '' });
 
+  // meta.worksheet を使う汎用の記述式ワークシート（例: test4-nikuの「問題10」設計課題）
+  const [worksheetAnswers, setWorksheetAnswers] = useState({});
+  const handleWorksheetChange = (key, val) => {
+    setWorksheetAnswers(p => ({ ...p, [key]: val }));
+  };
+
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [currentDraftName, setCurrentDraftName] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState('');
@@ -229,7 +235,7 @@ export default function App() {
     draftId: id,
     draftName: name,
     updatedAt: timeStamp || new Date().toLocaleString('ja-JP'),
-    userName, step, premiseTab, answer1, answer2, answers, score, targetQuestionIds, quizPage
+    userName, step, premiseTab, answer1, answer2, worksheetAnswers, answers, score, targetQuestionIds, quizPage
   });
 
   const saveDraftToLocalStore = (newDraft) => {
@@ -312,6 +318,7 @@ export default function App() {
     setPremiseTab(draftData.premiseTab || 'goal');
     setAnswer1(draftData.answer1 || { part: '', symptom: '', reason: '' });
     setAnswer2(draftData.answer2 || { doActions: '', okCriteria: '', nextAction: '' });
+    setWorksheetAnswers(draftData.worksheetAnswers || {});
     setAnswers(draftData.answers || {});
     setScore(draftData.score || 0);
     setTargetQuestionIds(draftData.targetQuestionIds || []);
@@ -325,7 +332,7 @@ export default function App() {
 
   const saveLiveSession = async () => {
     const currentData = {
-      userName, step, premiseTab, answer1, answer2, answers, score, targetQuestionIds, quizPage,
+      userName, step, premiseTab, answer1, answer2, worksheetAnswers, answers, score, targetQuestionIds, quizPage,
       currentDraftId, currentDraftName, lastSavedAt,
       updatedAt: new Date().toLocaleString('ja-JP')
     };
@@ -368,7 +375,7 @@ export default function App() {
     const t = setTimeout(saveLiveSession, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userName, step, premiseTab, answer1, answer2, answers, score, targetQuestionIds, quizPage, currentDraftId, currentDraftName, lastSavedAt, isLoaded, user]);
+  }, [userName, step, premiseTab, answer1, answer2, worksheetAnswers, answers, score, targetQuestionIds, quizPage, currentDraftId, currentDraftName, lastSavedAt, isLoaded, user]);
 
   const handleStart = () => {
     if (!userName.trim()) return;
@@ -500,6 +507,22 @@ export default function App() {
       );
       setIsGenerating(false);
       if (ok) showToast('入力レポートを保存しました');
+    } catch (err) {
+      console.error('PDF生成エラー:', err);
+      setIsGenerating(false);
+      showToast(`PDF生成中にエラーが発生しました: ${err.message || '不明なエラー'}`);
+    }
+  };
+
+  const saveWorksheetPdf = async () => {
+    setIsGenerating(true);
+    try {
+      const cleanUserName = (userName || '').trim() ? userName.trim().replace(/[/\?%*:|"<>\s]/g, '_') : '名前未入力';
+      const stepPageCount = Math.ceil((meta.worksheet?.steps?.length || 0) / 2);
+      const pageIds = Array.from({ length: stepPageCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
+      const ok = await renderPagesToPdf(pageIds, meta.pdfWorksheetFileName(cleanUserName));
+      setIsGenerating(false);
+      if (ok) showToast('設計課題レポートを保存しました');
     } catch (err) {
       console.error('PDF生成エラー:', err);
       setIsGenerating(false);
@@ -747,7 +770,7 @@ export default function App() {
         </div>
       )}
 
-      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result'].includes(step) && (
+      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result', 'worksheet', 'worksheetReview'].includes(step) && (
         <div className="sticky top-0 z-[50] pt-4 px-2 md:px-4 pointer-events-none">
           <div className="bg-white/95 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg flex flex-row justify-between items-center gap-3 rounded-2xl pointer-events-auto relative">
             <div className="flex flex-col flex-1 min-w-0">
@@ -934,8 +957,19 @@ export default function App() {
                 <button onClick={() => { setStep('intro1'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
                   <ArrowLeft className="w-4 h-4" /> 戻る
                 </button>
-                <button onClick={() => { setStep('premise'); setPremiseTab('goal'); window.scrollTo(0, 0); }} className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all">
-                  前提情報の確認へ進む
+                <button
+                  onClick={() => {
+                    if (meta.premise) {
+                      setStep('premise');
+                      setPremiseTab('goal');
+                    } else {
+                      handleStartQuiz();
+                    }
+                    window.scrollTo(0, 0);
+                  }}
+                  className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                >
+                  {meta.premise ? '前提情報の確認へ進む' : '問題に進む'}
                 </button>
               </div>
             </div>
@@ -1433,6 +1467,14 @@ export default function App() {
                         {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                         {isGenerating ? 'PDF生成中...' : '合格証とレポートをPDFで保存'}
                       </button>
+                      {meta.worksheet && (
+                        <button
+                          onClick={() => { setStep('worksheet'); window.scrollTo(0, 0); }}
+                          className="w-full md:w-auto bg-[#182349] text-white px-6 md:px-10 py-4 md:py-5 rounded-[20px] font-black text-[15px] md:text-lg shadow-lg hover:bg-indigo-900 transition-all"
+                        >
+                          {meta.worksheet.entryButtonLabel || '実践課題に進む'}
+                        </button>
+                      )}
                       <button onClick={() => { setAnswers({}); setStep('start'); window.scrollTo(0, 0); }} className="text-[12px] md:text-sm font-bold text-gray-400 hover:text-[#182349] transition-colors mt-2 md:mt-4">最初の画面に戻る</button>
                     </>
                   ) : (
@@ -1442,6 +1484,188 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 10. 記述式ワークシート（meta.worksheet がある場合のみ表示） */}
+          {step === 'worksheet' && meta.worksheet && (
+            <div className="animate-fade-in p-4 md:p-6 lg:p-8">
+              <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
+              <h2 className="text-[18px] md:text-[22px] font-black text-[#182349] mb-2 pb-2 border-b border-gray-100">{meta.worksheet.heading}</h2>
+              {meta.worksheet.intro?.map((line, i) => (
+                <p key={i} className="text-[12px] md:text-[13px] text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{line}</p>
+              ))}
+
+              <div className="max-h-[66vh] overflow-y-auto pr-2 space-y-6 md:space-y-8 py-4" style={{ scrollbarGutter: 'stable' }}>
+                {meta.worksheet.steps.map((ws, wsIdx) => (
+                  <div key={ws.id} className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-4">
+                    <h3 className="text-[16px] md:text-[18px] font-black text-[#182349] border-b pb-2 flex items-center gap-2">
+                      <span className="w-2.5 h-6 rounded-md bg-[#cb563e] inline-block"></span>
+                      {ws.number ? `${ws.number} ` : ''}{ws.title}
+                    </h3>
+                    {ws.lead && <p className="text-[12px] md:text-[13px] text-gray-500 leading-relaxed whitespace-pre-wrap">{ws.lead}</p>}
+                    <div className="space-y-3">
+                      {ws.fields.map(f => (
+                        <div key={f.key} className="space-y-1">
+                          <label className="block text-[12px] md:text-[13px] font-bold text-[#182349]">{f.label}</label>
+                          <textarea
+                            value={worksheetAnswers[f.key] || ''}
+                            onChange={(e) => handleWorksheetChange(f.key, e.target.value)}
+                            placeholder={f.placeholder || ''}
+                            className="w-full h-16 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {meta.worksheet.reasoningField && (
+                  <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
+                    <label className="block text-[13px] md:text-[14px] font-black text-[#182349]">{meta.worksheet.reasoningField.label}</label>
+                    <textarea
+                      value={worksheetAnswers[meta.worksheet.reasoningField.key] || ''}
+                      onChange={(e) => handleWorksheetChange(meta.worksheet.reasoningField.key, e.target.value)}
+                      className="w-full h-28 p-2.5 md:p-3 border-2 border-gray-200 rounded-xl bg-white text-[13px] md:text-[14px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all whitespace-pre-wrap break-all"
+                    />
+                  </div>
+                )}
+
+                {meta.worksheet.notesField && (
+                  <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
+                    <label className="block text-[13px] md:text-[14px] font-black text-[#182349]">{meta.worksheet.notesField.label}</label>
+                    <textarea
+                      value={worksheetAnswers[meta.worksheet.notesField.key] || ''}
+                      onChange={(e) => handleWorksheetChange(meta.worksheet.notesField.key, e.target.value)}
+                      className="w-full h-24 p-2.5 md:p-3 border-2 border-gray-200 rounded-xl bg-white text-[13px] md:text-[14px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all whitespace-pre-wrap break-all"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full mt-6">
+                <button onClick={() => { setStep('result'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
+                  <ArrowLeft className="w-4 h-4" /> 戻る
+                </button>
+                <button onClick={() => { setStep('worksheetReview'); window.scrollTo(0, 0); }} className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all">
+                  入力内容を確認する
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 11. ワークシート確認画面・PDF出力 */}
+          {step === 'worksheetReview' && meta.worksheet && (
+            <div className="animate-fade-in p-4 md:p-6 lg:p-8">
+              <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
+              <h2 className="text-[18px] md:text-[22px] font-black text-center text-[#182349] mb-4 md:mb-6 pb-3 border-b border-gray-100">入力内容の確認</h2>
+              <p className="text-[12px] md:text-[13px] text-gray-500 text-center mb-4 md:mb-6 leading-relaxed">
+                記入内容を確認してください。<br />修正したい場合は「戻る」から前のページに戻れます。<br />内容に問題なければ、PDFとして保存してください。
+              </p>
+
+              <div className="bg-white p-4 md:p-6 lg:p-8 rounded-2xl border border-gray-100 space-y-4 md:space-y-6 mb-6 md:mb-8 text-[#182349] w-full max-w-full box-border">
+                <div className="text-center border-b pb-4 md:pb-6 border-gray-100">
+                  <p className="text-[#cb563e] font-extrabold text-[11px] md:text-[12px] uppercase tracking-wider mb-1">{meta.worksheetPdfHeaderNote}</p>
+                  <h1 className="text-[18px] md:text-[20px] lg:text-[24px] font-[900] text-[#182349] leading-tight">{meta.chapterLabel}<br />{meta.themeLabel}</h1>
+                  <p className="text-[13px] md:text-sm font-bold text-[#cb563e] mt-3">【記入者名】 {userName || '（未入力）'}</p>
+                  <p className="text-[10px] md:text-[11px] text-gray-400 mt-1">保存日: {new Date().toLocaleDateString('ja-JP')}</p>
+                </div>
+                {meta.worksheet.steps.map(ws => (
+                  <div key={ws.id} className="space-y-2">
+                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
+                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{ws.number ? `${ws.number} ` : ''}{ws.title}
+                    </h3>
+                    <div className="bg-gray-50 p-3 md:p-3.5 rounded-xl border border-gray-100 space-y-2 text-[12px] md:text-sm w-full">
+                      {ws.fields.map(f => (
+                        <p key={f.key}><strong>{f.label}:</strong> {worksheetAnswers[f.key] || '未入力'}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {meta.worksheet.reasoningField && (
+                  <div className="space-y-2">
+                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
+                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{meta.worksheet.reasoningField.label}
+                    </h3>
+                    <ReviewTextBox>{worksheetAnswers[meta.worksheet.reasoningField.key]}</ReviewTextBox>
+                  </div>
+                )}
+                {meta.worksheet.notesField && (
+                  <div className="space-y-2">
+                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
+                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{meta.worksheet.notesField.label}
+                    </h3>
+                    <ReviewTextBox>{worksheetAnswers[meta.worksheet.notesField.key]}</ReviewTextBox>
+                  </div>
+                )}
+              </div>
+
+              {/* PDF出力用の非表示DOM（STEPを2つずつまとめてページ化 + 最後に説明・補足のページ） */}
+              <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '210mm' }}>
+                {(() => {
+                  const steps = meta.worksheet.steps;
+                  const chunks = [];
+                  for (let i = 0; i < steps.length; i += 2) chunks.push(steps.slice(i, i + 2));
+                  return chunks.map((chunk, pageIdx) => (
+                    <div key={pageIdx} id={`pdf-worksheet-page-${pageIdx + 1}`} style={pdfPageContainerStyle}>
+                      {pageIdx === 0 ? (
+                        <div className="text-center border-b pb-6 border-gray-200 mb-8">
+                          <p style={{ color: COLORS.accent, fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>{meta.worksheetPdfHeaderNote}</p>
+                          <h1 style={{ fontSize: '24px', fontWeight: '900', color: COLORS.text, lineHeight: '1.3', margin: '0 0 12px 0' }}>{meta.chapterLabel}<br />{meta.themeLabel}</h1>
+                          <p style={{ fontSize: '15px', fontWeight: 'bold', color: COLORS.accent, margin: '6px 0 0 0' }}>【記入者名】 {userName || '（名前未入力）'}</p>
+                          <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0 0' }}>保存日: {new Date().toLocaleDateString('ja-JP')}</p>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                          <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+                        </div>
+                      )}
+                      {chunk.map(ws => (
+                        <div key={ws.id} style={{ marginBottom: '16px' }}>
+                          <h3 style={{ fontSize: '13px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '8px' }}>
+                            {ws.number ? `${ws.number} ` : ''}{ws.title}
+                          </h3>
+                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.5' }}>
+                            {ws.fields.map(f => (
+                              <p key={f.key} style={{ margin: '0 0 4px 0' }}><strong>{f.label}:</strong> {worksheetAnswers[f.key] || '未入力'}</p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ));
+                })()}
+                <div id={`pdf-worksheet-page-${Math.ceil(meta.worksheet.steps.length / 2) + 1}`} style={pdfPageContainerStyle}>
+                  <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                    <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+                  </div>
+                  {meta.worksheet.reasoningField && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>{meta.worksheet.reasoningField.label}</h3>
+                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                        {worksheetAnswers[meta.worksheet.reasoningField.key] || '未入力'}
+                      </div>
+                    </div>
+                  )}
+                  {meta.worksheet.notesField && (
+                    <div>
+                      <h3 style={{ fontSize: '14px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>{meta.worksheet.notesField.label}</h3>
+                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                        {worksheetAnswers[meta.worksheet.notesField.key] || '未入力'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full mt-6">
+                <button onClick={() => { setStep('worksheet'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
+                  <ArrowLeft className="w-4 h-4" /> 戻る
+                </button>
+                <button onClick={saveWorksheetPdf} disabled={isGenerating} className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                  {isGenerating ? (<><RefreshCw className="w-5 h-5 animate-spin" />PDF生成中...</>) : (<><Download className="w-5 h-5" />入力内容をPDFで保存</>)}
+                </button>
               </div>
             </div>
           )}

@@ -6,7 +6,7 @@ import { COLORS } from './theme.js';
 import {
   CheckCircle, BookOpen, AlertCircle, Download, ArrowLeft, Save, ChevronDown, RefreshCw
 } from './components/Icons.jsx';
-import { ReviewTextBox, SectionHeading, GoodMoreList } from './components/Common.jsx';
+import { ReviewTextBox, SectionHeading, GoodMoreList, LaurelWreathSVG } from './components/Common.jsx';
 import activeTest from './config.js';
 
 const { meta, questions, demoAnswers, graphs } = activeTest;
@@ -83,7 +83,6 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState(0);
-  const [showPreview, setShowPreview] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [targetQuestionIds, setTargetQuestionIds] = useState([]);
   const [quizPage, setQuizPage] = useState(1);
@@ -530,69 +529,26 @@ export default function App() {
     }
   };
 
+  // 合格証＋回答レポートのPDF化。1問あたりの表示分量が多いため、questionsを
+  // 3問ずつのページに分割し、1ページ目に合格証を差し込む。
+  const CERT_QUESTIONS_PER_PAGE = 3;
+  const certReviewPageIds = Array.from(
+    { length: Math.ceil(questions.length / CERT_QUESTIONS_PER_PAGE) },
+    (_, i) => `pdf-cert-review-page-${i + 1}`
+  );
+
   const saveToPdf = async () => {
-    if (!window.html2canvas || !window.jspdf) {
-      showToast('PDF生成機能が準備できていません。通信環境を確認し再読み込みしてください。');
-      setIsGenerating(false);
-      setShowPreview(false);
-      return;
-    }
-    const pages = document.querySelectorAll('.pdf-page');
-    if (!pages || pages.length === 0) return;
-
     try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const renderScale = isMobile ? 1.5 : 2;
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-
-      for (let i = 0; i < pages.length; i++) {
-        if (i > 0) pdf.addPage();
-        const canvas = await window.html2canvas(pages[i], {
-          scale: renderScale, useCORS: true, logging: false, backgroundColor: '#ffffff',
-          ignoreElements: (node) => {
-            if (node.tagName) {
-              const tag = node.tagName.toLowerCase();
-              if (tag === 'img' || tag === 'iframe') return true;
-            }
-            return false;
-          }
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.8);
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-        canvas.width = 0;
-        canvas.height = 0;
-      }
-
-      const fileName = meta.pdfCertFileName(userName);
-      const pdfBlob = pdf.output('blob');
-      if (isMobile && navigator.share) {
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        try {
-          await navigator.share({ files: [file], title: 'EDICODE合格証' });
-        } catch (e) {
-          downloadBlob(pdfBlob, fileName);
-        }
-      } else {
-        downloadBlob(pdfBlob, fileName);
-      }
+      const pageIds = ['pdf-cert-page-1', ...certReviewPageIds];
+      const ok = await renderPagesToPdf(pageIds, meta.pdfCertFileName(userName));
       setIsGenerating(false);
-      setShowPreview(false);
+      if (ok) showToast('合格証とレポートを保存しました');
     } catch (err) {
       console.error('PDF生成エラー:', err);
       setIsGenerating(false);
-      setShowPreview(false);
       showToast(`PDF生成中にエラーが発生しました: ${err.message || '不明なエラー'}`);
     }
   };
-
-  useEffect(() => {
-    if (showPreview && isGenerating) {
-      const timer = setTimeout(() => { saveToPdf(); }, 1500);
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPreview, isGenerating]);
 
   const handleToggleSaveMenu = useCallback((e) => {
     e.preventDefault();
@@ -1449,18 +1405,56 @@ export default function App() {
                   })}
                 </div>
 
+                {/* PDF出力用の非表示DOM（合格証1ページ + 回答レポート数ページ） */}
+                <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '210mm' }}>
+                  <div id="pdf-cert-page-1" style={{ ...pdfPageContainerStyle, alignItems: 'center', justifyContent: 'center', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                    <LaurelWreathSVG />
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <p style={{ color: COLORS.accent, fontWeight: 900, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '18px' }}>EDICODE</p>
+                      <p style={{ fontSize: '15px', fontWeight: 900, color: COLORS.text, marginBottom: '6px' }}>合格証</p>
+                      <h1 style={{ fontSize: '22px', fontWeight: 900, color: COLORS.text, lineHeight: 1.4, margin: '0 0 28px 0' }}>
+                        {meta.testCode} {meta.testCodeSub}<br />{meta.chapterLabel}
+                      </h1>
+                      <p style={{ fontSize: '24px', fontWeight: 900, color: COLORS.text, margin: '0 0 8px 0' }}>{userName || '（名前未入力）'} 様</p>
+                      <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '28px' }}>上記の確認テストに合格したことを証明します</p>
+                      <p style={{ fontSize: '40px', fontWeight: 900, color: COLORS.accent, margin: '0 0 28px 0' }}>{score} <span style={{ fontSize: '16px', color: '#94a3b8' }}>/ 100点</span></p>
+                      <p style={{ fontSize: '11px', color: '#94a3b8' }}>発行日: {new Date().toLocaleDateString('ja-JP')}</p>
+                    </div>
+                  </div>
+
+                  {Array.from({ length: certReviewPageIds.length }, (_, pageIdx) => {
+                    const pageQuestions = questions.slice(pageIdx * CERT_QUESTIONS_PER_PAGE, (pageIdx + 1) * CERT_QUESTIONS_PER_PAGE);
+                    return (
+                      <div key={pageIdx} id={certReviewPageIds[pageIdx]} style={pdfPageContainerStyle}>
+                        <div style={{ marginBottom: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                          <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.testCode} {meta.testCodeSub} | 回答レポート（{pageIdx + 1} / {certReviewPageIds.length}）</p>
+                        </div>
+                        {pageQuestions.map(q => {
+                          const qScore = getQuestionScore(q, answers);
+                          const isP = qScore === q.points;
+                          const { displayAnswer, displayCorrect } = getDisplayValues(q, answers[q.id]);
+                          return (
+                            <div key={q.id} style={{ marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                              <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.text, margin: '0 0 4px 0' }}>
+                                Question {q.id}
+                                <span style={{ color: isP ? '#2563eb' : '#dc2626' }}>{isP ? '✓ CORRECT' : `× ${qScore}点`}</span>
+                              </p>
+                              <p style={{ fontSize: '10px', color: '#334155', margin: '0 0 6px 0', whiteSpace: 'pre-wrap' }}>{q.question}</p>
+                              <p style={{ fontSize: '9.5px', color: '#475569', margin: '0 0 2px 0' }}><strong>あなたの回答:</strong> {displayAnswer}</p>
+                              <p style={{ fontSize: '9.5px', color: '#047857', margin: 0 }}><strong>正解:</strong> {displayCorrect}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <div className="mt-8 md:mt-12 flex flex-col items-center gap-4">
                   {score >= meta.passScore ? (
                     <>
                       <button
-                        onClick={() => {
-                          if (!window.html2canvas || !window.jspdf) {
-                            showToast('PDF生成機能が準備できていません。通信環境を確認し再読み込みしてください。');
-                            return;
-                          }
-                          setIsGenerating(true);
-                          setShowPreview(true);
-                        }}
+                        onClick={() => { setIsGenerating(true); saveToPdf(); }}
                         disabled={isGenerating}
                         className="w-full md:w-auto bg-[#cb563e] text-white px-6 md:px-10 py-4 md:py-5 rounded-[20px] font-black text-[15px] md:text-lg flex items-center justify-center gap-3 shadow-xl hover:brightness-110 transition-all disabled:opacity-50"
                       >

@@ -1,4 +1,5 @@
 import React from 'react';
+import { COLORS } from '../theme.js';
 
 // 日本語の「」（）を折り返しやすくするための表示用ラッパー
 export const ResponsiveText = ({ text }) => {
@@ -46,6 +47,55 @@ export const SectionHeading = ({ children, accent = false }) => (
     <h3 className="text-[16px] md:text-[18px] font-black text-[#182349]">{children}</h3>
   </div>
 );
+
+// 合格証PDFの背景に敷く月桂樹の装飾（SVG）
+export const LaurelWreathSVG = () => {
+  const numLeaves = 10;
+  const leftPoints = [];
+  const rightPoints = [];
+
+  const Leaf = ({ length, width }) => {
+    const outlinePath = `M 0,0 C ${length * 0.4},${width} ${length * 0.7},${width * 0.9} ${length},0 C ${length * 0.7},${-width * 0.9} ${length * 0.4},${-width} 0,0 Z`;
+    const veinPath = `M 0,0 Q ${length * 0.5},${width * 0.15} ${length * 0.85},0`;
+    return (
+      <g>
+        <path d={outlinePath} fill={COLORS.goldLight} stroke={COLORS.goldDark} strokeWidth="1" />
+        <path d={veinPath} fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    );
+  };
+
+  const leaves = Array.from({ length: numLeaves }).map((_, i) => {
+    const t = i / (numLeaves - 1);
+    const a = (t * 140 + 10) * Math.PI / 180;
+    const lx = 250 - 180 * Math.sin(a);
+    const ly = 260 + 180 * Math.cos(a);
+    leftPoints.push({ x: lx, y: ly });
+    const lAngle = Math.atan2(-180 * Math.sin(a), -180 * Math.cos(a)) * 180 / Math.PI;
+    const rx = 250 + 180 * Math.sin(a);
+    const ry = 260 + 180 * Math.cos(a);
+    rightPoints.push({ x: rx, y: ry });
+    const rAngle = Math.atan2(-180 * Math.sin(a), 180 * Math.cos(a)) * 180 / Math.PI;
+    const scale = 0.7;
+    return (
+      <React.Fragment key={i}>
+        <g transform={`translate(${lx}, ${ly}) scale(${scale}) rotate(${lAngle})`}><Leaf length={60} width={18} /></g>
+        <g transform={`translate(${rx}, ${ry}) scale(${scale}) rotate(${rAngle})`}><Leaf length={60} width={18} /></g>
+      </React.Fragment>
+    );
+  });
+
+  const leftStemPath = `M 270,460 C 260,450 250,440 ${leftPoints[0].x},${leftPoints[0].y} L ` + leftPoints.map(p => `${p.x},${p.y}`).join(' L ');
+  const rightStemPath = `M 230,460 C 240,450 250,440 ${rightPoints[0].x},${rightPoints[0].y} L ` + rightPoints.map(p => `${p.x},${p.y}`).join(' L ');
+
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 500 500" style={{ position: 'absolute', inset: 0, margin: 'auto', zIndex: 0 }}>
+      <path d={leftStemPath} fill="none" stroke={COLORS.goldDark} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={rightStemPath} fill="none" stroke={COLORS.goldDark} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      {leaves}
+    </svg>
+  );
+};
 
 export const GoodMoreList = ({ good = [], more = [] }) => (
   <>

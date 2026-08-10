@@ -1435,13 +1435,12 @@ export default function App() {
                   >
                     <div style={{ position: 'absolute', left: '28mm', right: '28mm', top: '60mm', bottom: '60mm', display: 'flex', flexDirection: 'column' }}>
                       <h1 style={{ fontSize: '66.7pt', fontWeight: 900, color: '#1c1c2e', letterSpacing: '0.35em', textAlign: 'center', margin: '0 0 12mm 0', fontFamily: certFontFamily }}>合格証</h1>
-                      <p style={{ fontSize: '13px', fontWeight: 700, color: COLORS.text, textAlign: 'center', margin: '0 0 3mm 0', fontFamily: certFontFamily }}>{certChapterNumber}</p>
+                      <p style={{ fontSize: '26.9pt', fontWeight: 700, color: COLORS.text, textAlign: 'center', margin: '0 0 3mm 0', fontFamily: certFontFamily }}>{certChapterNumber}</p>
                       <p style={{ fontSize: '26.9pt', fontWeight: 900, color: COLORS.text, textAlign: 'center', margin: '0 0 18mm 0', fontFamily: certFontFamily }}>{certCourseTitle}</p>
                       <p style={{ fontSize: '32.1pt', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: '0 0 auto 0', fontFamily: certFontFamily }}>{userName || 'ご入力者'} 殿</p>
                       <p style={{ fontSize: '21.1pt', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 auto 0', fontFamily: certFontFamily }}>
-                        あなたは食のプロフェッショナル養成講座の<br />
-                        「{certChapterNumber} {certCourseTitle}」の<br />
-                        確認テストに合格致しましたので、ここに賞します。
+                        あなたは食のプロフェッショナル養成講座の「{certChapterNumber} {certCourseTitle}」の確認テストに合格致しましたので<br />
+                        ここに賞します。
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                         <p style={{ fontSize: '19.9pt', color: '#334155', margin: 0, fontFamily: certFontFamily }}>{formatReiwaDate()}</p>

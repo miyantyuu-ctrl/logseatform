@@ -6,7 +6,7 @@ import { COLORS } from './theme.js';
 import {
   CheckCircle, BookOpen, AlertCircle, Download, ArrowLeft, Save, ChevronDown, RefreshCw
 } from './components/Icons.jsx';
-import { ReviewTextBox, SectionHeading, GoodMoreList, CertOrnamentFrame } from './components/Common.jsx';
+import { ReviewTextBox, SectionHeading, GoodMoreList, CertBorderFrame, CertDivider, LaurelWreathSVG } from './components/Common.jsx';
 import activeTest from './config.js';
 
 const { meta, questions, demoAnswers, graphs } = activeTest;
@@ -529,13 +529,9 @@ export default function App() {
     }
   };
 
-  // 合格証＋回答レポートのPDF化。1問あたりの表示分量が多いため、questionsを
-  // 3問ずつのページに分割し、1ページ目に合格証を差し込む。
-  const CERT_QUESTIONS_PER_PAGE = 3;
-  const certReviewPageIds = Array.from(
-    { length: Math.ceil(questions.length / CERT_QUESTIONS_PER_PAGE) },
-    (_, i) => `pdf-cert-review-page-${i + 1}`
-  );
+  // 合格証＋回答レポートのPDF化。解説文が長い設問があるため、1ページ＝1問とし、
+  // 1ページ目に合格証を差し込む。
+  const certReviewPageIds = questions.map((_, i) => `pdf-cert-review-page-${i + 1}`);
 
   const saveToPdf = async () => {
     try {
@@ -569,10 +565,12 @@ export default function App() {
     display: 'flex', flexDirection: 'column', position: 'relative'
   };
 
-  // 合格証に表示する講座名・発行者情報（meta側で上書きできるが、未指定ならテスト名から組み立てる）
-  const certCourseName = meta.certCourseName || `${meta.testCode} ${meta.testCodeSub}`;
-  const certIssuerRole = meta.certIssuerRole || 'EDICODE 講師';
+  // 合格証に表示する章番号・講座名・発行者情報（meta側で上書きできるが、未指定ならテスト名から組み立てる）
+  const certChapterNumber = meta.certChapterNumber || (meta.chapterLabel || '').split(' ')[0] || '';
+  const certCourseTitle = meta.certCourseTitle || meta.testCodeSub || '';
+  const certIssuerRole = meta.certIssuerRole || 'EDICODE講師';
   const certIssuerName = meta.certIssuerName || '辻岡靖明';
+  const reportSubtitle = meta.reportSubtitle || `${meta.testCode} -${meta.testCodeSub}-`;
 
   // 発行日を「令和◯年◯月◯日」形式で返す
   const formatReiwaDate = () => {
@@ -1419,63 +1417,81 @@ export default function App() {
 
                 {/* PDF出力用の非表示DOM（合格証1ページ + 回答レポート数ページ） */}
                 <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '210mm' }}>
-                  <div id="pdf-cert-page-1" style={{ ...pdfPageContainerStyle, backgroundColor: '#fffdf8', position: 'relative', overflow: 'hidden', padding: '26mm 24mm' }}>
-                    <CertOrnamentFrame />
+                  <div id="pdf-cert-page-1" style={{ ...pdfPageContainerStyle, backgroundColor: '#ffffff', position: 'relative', overflow: 'hidden', padding: '20mm 22mm' }}>
+                    <CertBorderFrame />
                     <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <h1 style={{ fontSize: '46px', fontWeight: 900, color: '#2b2620', letterSpacing: '0.3em', textAlign: 'center', margin: '18mm 0 10mm 0', fontFamily: 'serif' }}>合格証</h1>
-                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#2b2620', margin: '0 0 8mm 0', fontFamily: 'serif' }}>{certCourseName}</p>
-                      <p style={{ fontSize: '22px', fontWeight: 700, color: '#2b2620', textAlign: 'right', margin: '0 0 14mm 0', fontFamily: 'serif' }}>{userName || 'ご入力者'} 殿</p>
-                      <p style={{ fontSize: '13px', lineHeight: 2, color: '#3f382e', margin: '0 0 auto 0', fontFamily: 'serif' }}>
-                        あなたは食のプロフェッショナル養成講座<br />
-                        EDICODEの【{certCourseName}】の確認テストに合格致しましたので、ここに賞します。
+                      <h1 style={{ fontSize: '44px', fontWeight: 900, color: COLORS.text, letterSpacing: '0.3em', textAlign: 'center', margin: '14mm 0 0 0' }}>合格証</h1>
+                      <CertDivider />
+
+                      <div style={{ position: 'relative', flex: 1, minHeight: '150mm' }}>
+                        <LaurelWreathSVG />
+                        <div style={{ position: 'relative', zIndex: 1, padding: '6mm 10mm 0 10mm' }}>
+                          <p style={{ fontSize: '14px', fontWeight: 700, color: COLORS.text, margin: '0 0 4px 0' }}>{certChapterNumber}</p>
+                          <p style={{ fontSize: '22px', fontWeight: 900, color: COLORS.text, margin: '0 0 20mm 0' }}>{certCourseTitle}</p>
+                          <p style={{ fontSize: '24px', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: 0 }}>{userName || 'ご入力者'} 殿</p>
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: '13px', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 12mm 0' }}>
+                        あなたは食のプロフェッショナル養成講座の<br />
+                        「{certChapterNumber} {certCourseTitle}」の<br />
+                        確認テストに合格致しましたので、ここに賞します。
                       </p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '16mm' }}>
-                        <p style={{ fontSize: '13px', color: '#3f382e', fontFamily: 'serif', margin: 0 }}>{formatReiwaDate()}</p>
-                        <p style={{ fontSize: '13px', color: '#3f382e', fontFamily: 'serif', margin: 0 }}>
-                          {certIssuerRole}　<span style={{ fontSize: '20px', fontWeight: 700, marginLeft: '6px' }}>{certIssuerName}</span>
-                        </p>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', marginBottom: '10mm' }}>
+                        <p style={{ fontSize: '13px', color: '#334155', margin: 0 }}>{formatReiwaDate()}</p>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '11px', color: '#334155', margin: '0 0 2px 0' }}>{certIssuerRole}</p>
+                          <p style={{ fontSize: '22px', fontWeight: 700, color: COLORS.text, margin: 0 }}>{certIssuerName}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {Array.from({ length: certReviewPageIds.length }, (_, pageIdx) => {
-                    const pageQuestions = questions.slice(pageIdx * CERT_QUESTIONS_PER_PAGE, (pageIdx + 1) * CERT_QUESTIONS_PER_PAGE);
+                  {questions.map((q, qIdx) => {
+                    const qScore = getQuestionScore(q, answers);
+                    const isP = qScore === q.points;
+                    const isPart = qScore > 0 && qScore < q.points;
+                    const statusColor = isP ? '#059669' : isPart ? '#b45309' : '#dc2626';
+                    const statusLabel = isP ? '✓ CORRECT' : isPart ? `△ PARTIAL (${qScore}点)` : '× INCORRECT';
+                    const borderColor = isP ? '#2563eb' : isPart ? '#eab308' : '#ef4444';
+                    const { displayAnswer, displayCorrect } = getDisplayValues(q, answers[q.id]);
+                    const Graph = q.diagram ? graphs[q.diagram] : null;
                     return (
-                      <div key={pageIdx} id={certReviewPageIds[pageIdx]} style={pdfPageContainerStyle}>
-                        {pageIdx === 0 && (
-                          <div style={{ background: COLORS.gradientBar, borderRadius: '14px', padding: '2px', marginBottom: '14px' }}>
-                            <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-                              <p style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, margin: '0 0 4px 0' }}>{userName || '受講者'} 様の結果</p>
-                              <p style={{ fontSize: '28px', fontWeight: 900, color: COLORS.text, margin: '0 0 6px 0' }}>{score} <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 700 }}>/ 100点</span></p>
-                              <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                                🏅 合格！おめでとうございます
-                              </span>
-                            </div>
+                      <div key={q.id} id={certReviewPageIds[qIdx]} style={{ ...pdfPageContainerStyle, padding: '16mm' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3mm' }}>
+                          <div>
+                            <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '0.02em' }}>RESULT REPORT</h2>
+                            <p style={{ fontSize: '10px', color: '#94a3b8', margin: '2px 0 0 0' }}>{reportSubtitle}</p>
                           </div>
-                        )}
-                        <p style={{ fontSize: '13px', fontWeight: 900, color: COLORS.text, margin: '0 0 8px 0', borderLeft: `4px solid ${COLORS.accent}`, paddingLeft: '8px' }}>回答の確認</p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                          {pageQuestions.map(q => {
-                            const qScore = getQuestionScore(q, answers);
-                            const isP = qScore === q.points;
-                            const { displayAnswer, displayCorrect } = getDisplayValues(q, answers[q.id]);
-                            return (
-                              <div key={q.id} style={{ width: 'calc(50% - 5px)', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px', boxSizing: 'border-box' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                                  <span style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px', padding: '2px 6px' }}>{q.category || `Q${q.id}`}</span>
-                                  <span style={{ fontSize: '9px', fontWeight: 700, color: isP ? '#059669' : '#dc2626', backgroundColor: isP ? '#ecfdf5' : '#fef2f2', borderRadius: '6px', padding: '2px 6px' }}>{isP ? '✓ 正解' : `✗ ${qScore}点`}</span>
-                                </div>
-                                <p style={{ fontSize: '9px', fontWeight: 700, color: '#1e293b', margin: '0 0 5px 0', whiteSpace: 'pre-wrap' }}>Q{q.id}. {q.question}</p>
-                                <p style={{ fontSize: '8.5px', color: '#64748b', margin: '0 0 2px 0' }}>あなたの回答:</p>
-                                <p style={{ fontSize: '9px', fontWeight: 700, color: isP ? '#182349' : '#dc2626', margin: '0 0 6px 0' }}>{displayAnswer}</p>
-                                <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '6px 8px' }}>
-                                  <p style={{ fontSize: '8px', fontWeight: 700, color: '#1d4ed8', margin: '0 0 2px 0' }}>📘 正解</p>
-                                  <p style={{ fontSize: '8.5px', color: '#1e3a8a', margin: 0 }}>{displayCorrect}</p>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          <p style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>{userName || '受講者'} 様</p>
                         </div>
+                        <div style={{ height: '5px', width: '100%', background: COLORS.gradientBar, borderRadius: '3px', marginBottom: '5mm' }} />
+
+                        <div style={{ border: '1px solid #e2e8f0', borderLeft: `6px solid ${borderColor}`, borderRadius: '10px', padding: '5mm', flex: 1, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4mm' }}>
+                            <span style={{ display: 'inline-block', backgroundColor: COLORS.text, color: '#fff', fontWeight: 900, fontSize: '11px', borderRadius: '6px', padding: '3px 10px' }}>Q{q.id}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 900, color: statusColor }}>{statusLabel}</span>
+                          </div>
+                          <p style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '0 0 4mm 0', whiteSpace: 'pre-wrap' }}>{q.question}</p>
+                          {q.description && (
+                            <p style={{ fontSize: '10px', color: '#475569', backgroundColor: '#f8fafc', borderRadius: '8px', padding: '3mm', margin: '0 0 4mm 0', whiteSpace: 'pre-wrap' }}>{q.description}</p>
+                          )}
+                          {Graph && <Graph isPdf />}
+                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '4mm', marginBottom: '4mm' }}>
+                            <p style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', margin: '0 0 2px 0' }}>▼ あなたの回答</p>
+                            <p style={{ fontSize: '11px', fontWeight: 700, color: isP ? COLORS.text : statusColor, margin: '0 0 3mm 0', whiteSpace: 'pre-wrap' }}>{displayAnswer}</p>
+                            <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 2px 0' }}>▼ 正解</p>
+                            <p style={{ fontSize: '11px', fontWeight: 700, color: COLORS.accent, margin: 0, whiteSpace: 'pre-wrap' }}>{displayCorrect}</p>
+                          </div>
+                          {q.explanation && (
+                            <div style={{ backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '4mm' }}>
+                              <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 2mm 0' }}>📖 講師解説</p>
+                              <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{q.explanation}</p>
+                            </div>
+                          )}
+                        </div>
+                        <p style={{ textAlign: 'right', fontSize: '9px', color: '#94a3b8', marginTop: '3mm' }}>{qIdx + 1} / {questions.length}</p>
                       </div>
                     );
                   })}

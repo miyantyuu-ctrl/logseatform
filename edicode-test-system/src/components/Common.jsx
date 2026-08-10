@@ -48,39 +48,71 @@ export const SectionHeading = ({ children, accent = false }) => (
   </div>
 );
 
-// 合格証の四隅に配置する装飾コーナー（アールデコ風の二重線＋ノット）
-const CertCorner = ({ style }) => (
-  <svg viewBox="0 0 120 120" width="72" height="72" style={{ position: 'absolute', ...style }}>
-    <path d="M6,60 L6,6 L60,6" stroke={COLORS.goldDark} strokeWidth="2.5" fill="none" />
-    <path d="M16,66 L16,16 L66,16" stroke={COLORS.goldLight} strokeWidth="2" fill="none" />
-    <circle cx="11" cy="11" r="7" stroke={COLORS.goldDark} strokeWidth="2.5" fill="none" />
-    <path d="M11,22 L11,40 M0,11 L18,11" stroke={COLORS.goldLight} strokeWidth="1.5" />
-    <ellipse cx="46" cy="10" rx="10" ry="4" fill={COLORS.goldLight} stroke={COLORS.goldDark} strokeWidth="1" transform="rotate(20 46 10)" />
-    <ellipse cx="10" cy="46" rx="10" ry="4" fill={COLORS.goldLight} stroke={COLORS.goldDark} strokeWidth="1" transform="rotate(70 10 46)" />
-  </svg>
-);
-
-// 中央上下の小さな飾り罫（波線＋菱形）
-const CertCenterOrnament = () => (
-  <svg viewBox="0 0 260 40" width="220" height="34">
-    <path d="M0,20 C40,0 60,40 100,20 C120,10 140,10 160,20 C200,40 220,0 260,20" stroke={COLORS.goldDark} strokeWidth="1.5" fill="none" />
-    <rect x="120" y="8" width="20" height="20" fill={COLORS.goldLight} stroke={COLORS.goldDark} strokeWidth="1.5" transform="rotate(45 130 18)" />
-  </svg>
-);
-
-// 合格証PDFの外枠装飾（四隅のコーナー＋左右の縦罫＋上下の飾り罫）
-export const CertOrnamentFrame = () => (
+// 合格証の外枠（金色の二重罫線フレーム）
+export const CertBorderFrame = () => (
   <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-    <CertCorner style={{ top: 14, left: 14 }} />
-    <CertCorner style={{ top: 14, right: 14, transform: 'scaleX(-1)' }} />
-    <CertCorner style={{ bottom: 14, left: 14, transform: 'scaleY(-1)' }} />
-    <CertCorner style={{ bottom: 14, right: 14, transform: 'scale(-1,-1)' }} />
-    <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)' }}><CertCenterOrnament /></div>
-    <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)' }}><CertCenterOrnament /></div>
-    <div style={{ position: 'absolute', top: 110, bottom: 130, left: 34, width: 1.5, backgroundColor: COLORS.goldDark, opacity: 0.6 }} />
-    <div style={{ position: 'absolute', top: 110, bottom: 130, right: 34, width: 1.5, backgroundColor: COLORS.goldDark, opacity: 0.6 }} />
+    <div style={{ position: 'absolute', inset: '8mm', border: `1.5px solid ${COLORS.goldDark}` }} />
+    <div style={{ position: 'absolute', inset: '11mm', border: `1px solid ${COLORS.goldDark}` }} />
   </div>
 );
+
+// タイトル下の小さな飾り罫（線 ─ 菱形 ─ 線）
+export const CertDivider = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', margin: '0 0 10mm 0' }}>
+    <span style={{ width: '60px', height: '1px', backgroundColor: COLORS.goldDark, display: 'inline-block' }} />
+    <span style={{ width: '9px', height: '9px', backgroundColor: COLORS.goldDark, transform: 'rotate(45deg)', display: 'inline-block' }} />
+    <span style={{ width: '60px', height: '1px', backgroundColor: COLORS.goldDark, display: 'inline-block' }} />
+  </div>
+);
+
+// 合格証の中央に敷く月桂樹の装飾（SVG）。氏名・講座名のテキストブロックの背景として使う。
+export const LaurelWreathSVG = () => {
+  const numLeaves = 10;
+  const leftPoints = [];
+  const rightPoints = [];
+
+  const Leaf = ({ length, width }) => {
+    const outlinePath = `M 0,0 C ${length * 0.4},${width} ${length * 0.7},${width * 0.9} ${length},0 C ${length * 0.7},${-width * 0.9} ${length * 0.4},${-width} 0,0 Z`;
+    const veinPath = `M 0,0 Q ${length * 0.5},${width * 0.15} ${length * 0.85},0`;
+    return (
+      <g opacity="0.55">
+        <path d={outlinePath} fill={COLORS.goldLight} stroke={COLORS.goldDark} strokeWidth="1" />
+        <path d={veinPath} fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    );
+  };
+
+  const leaves = Array.from({ length: numLeaves }).map((_, i) => {
+    const t = i / (numLeaves - 1);
+    const a = (t * 140 + 10) * Math.PI / 180;
+    const lx = 250 - 180 * Math.sin(a);
+    const ly = 260 + 180 * Math.cos(a);
+    leftPoints.push({ x: lx, y: ly });
+    const lAngle = Math.atan2(-180 * Math.sin(a), -180 * Math.cos(a)) * 180 / Math.PI;
+    const rx = 250 + 180 * Math.sin(a);
+    const ry = 260 + 180 * Math.cos(a);
+    rightPoints.push({ x: rx, y: ry });
+    const rAngle = Math.atan2(-180 * Math.sin(a), 180 * Math.cos(a)) * 180 / Math.PI;
+    const scale = 0.7;
+    return (
+      <React.Fragment key={i}>
+        <g transform={`translate(${lx}, ${ly}) scale(${scale}) rotate(${lAngle})`}><Leaf length={60} width={18} /></g>
+        <g transform={`translate(${rx}, ${ry}) scale(${scale}) rotate(${rAngle})`}><Leaf length={60} width={18} /></g>
+      </React.Fragment>
+    );
+  });
+
+  const leftStemPath = `M 270,460 C 260,450 250,440 ${leftPoints[0].x},${leftPoints[0].y} L ` + leftPoints.map(p => `${p.x},${p.y}`).join(' L ');
+  const rightStemPath = `M 230,460 C 240,450 250,440 ${rightPoints[0].x},${rightPoints[0].y} L ` + rightPoints.map(p => `${p.x},${p.y}`).join(' L ');
+
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 500 500" style={{ position: 'absolute', inset: 0, margin: 'auto', zIndex: 0 }}>
+      <path d={leftStemPath} fill="none" stroke={COLORS.goldDark} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+      <path d={rightStemPath} fill="none" stroke={COLORS.goldDark} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+      {leaves}
+    </svg>
+  );
+};
 
 export const GoodMoreList = ({ good = [], more = [] }) => (
   <>

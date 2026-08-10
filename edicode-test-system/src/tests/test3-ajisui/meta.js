@@ -19,6 +19,14 @@ export const meta = {
   reviewPdfHeaderNote: 'EDICODE 確認テスト③ -味調整理論-',
   reviewPdfFooterNote: 'EDICODE 確認テスト③ -味調整理論- | 記入内容レポート',
 
+  // 合格証（PDF1ページ目）に表示する文言
+  certChapterNumber: '第6章',
+  certCourseTitle: '味調整理論マスター講座',
+  certIssuerRole: 'EDICODE講師',
+  certIssuerName: '辻岡靖明',
+  // 回答レポート（PDF2ページ目以降）のヘッダーに表示するサブタイトル
+  reportSubtitle: '確認テスト③ -味調整理論-',
+
   // イントロページ1（テストの目的）
   intro1: {
     heading: '確認テスト③の受講について',

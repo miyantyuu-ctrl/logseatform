@@ -18,6 +18,14 @@ export const meta = {
   passScore: 80,
   pdfCertFileName: (userName) => `【${userName}】確認テスト-④肉の基礎理論-合格証.pdf`,
 
+  // 合格証（PDF1ページ目）に表示する文言
+  certChapterNumber: '第7章',
+  certCourseTitle: '肉の基礎理論マスター講座',
+  certIssuerRole: 'EDICODE講師',
+  certIssuerName: '辻岡靖明',
+  // 回答レポート（PDF2ページ目以降）のヘッダーに表示するサブタイトル
+  reportSubtitle: '確認テスト④ -肉の基礎理論-',
+
   // 問題10（設計課題）用のPDFファイル名・見出し
   pdfWorksheetFileName: (userName) => `【${userName}】確認テスト④-肉の基礎理論-_ローストポーク設計_記入レポート.pdf`,
   worksheetPdfHeaderNote: 'EDICODE 確認テスト④ -肉の基礎理論-',

@@ -6,7 +6,7 @@ import { COLORS } from './theme.js';
 import {
   CheckCircle, BookOpen, AlertCircle, Download, ArrowLeft, Save, ChevronDown, RefreshCw
 } from './components/Icons.jsx';
-import { ReviewTextBox, SectionHeading, GoodMoreList, CertBorderFrame, CertDivider, LaurelWreathSVG } from './components/Common.jsx';
+import { ReviewTextBox, SectionHeading, GoodMoreList } from './components/Common.jsx';
 import activeTest from './config.js';
 
 const { meta, questions, demoAnswers, graphs } = activeTest;
@@ -1417,28 +1417,32 @@ export default function App() {
 
                 {/* PDF出力用の非表示DOM（合格証1ページ + 回答レポート数ページ） */}
                 <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '210mm' }}>
-                  <div id="pdf-cert-page-1" style={{ ...pdfPageContainerStyle, backgroundColor: '#ffffff', position: 'relative', overflow: 'hidden', padding: '20mm 22mm' }}>
-                    <CertBorderFrame />
-                    <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <h1 style={{ fontSize: '44px', fontWeight: 900, color: COLORS.text, letterSpacing: '0.3em', textAlign: 'center', margin: '14mm 0 0 0' }}>合格証</h1>
-                      <CertDivider />
-
-                      <div style={{ position: 'relative', flex: 1, minHeight: '150mm' }}>
-                        <LaurelWreathSVG />
-                        <div style={{ position: 'relative', zIndex: 1, padding: '6mm 10mm 0 10mm' }}>
-                          <p style={{ fontSize: '14px', fontWeight: 700, color: COLORS.text, margin: '0 0 4px 0' }}>{certChapterNumber}</p>
-                          <p style={{ fontSize: '22px', fontWeight: 900, color: COLORS.text, margin: '0 0 20mm 0' }}>{certCourseTitle}</p>
-                          <p style={{ fontSize: '24px', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: 0 }}>{userName || 'ご入力者'} 殿</p>
-                        </div>
-                      </div>
-
-                      <p style={{ fontSize: '13px', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 12mm 0' }}>
+                  <div
+                    id="pdf-cert-page-1"
+                    style={{
+                      ...pdfPageContainerStyle,
+                      height: '297mm',
+                      backgroundColor: '#fffdf6',
+                      backgroundImage: `url(${import.meta.env.BASE_URL}certificates/cert-bg.png)`,
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center top',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      padding: 0
+                    }}
+                  >
+                    <div style={{ position: 'absolute', left: '28mm', right: '28mm', top: '60mm', bottom: '60mm', display: 'flex', flexDirection: 'column' }}>
+                      <h1 style={{ fontSize: '40px', fontWeight: 900, color: '#1c1c2e', letterSpacing: '0.35em', textAlign: 'center', margin: '0 0 12mm 0', fontFamily: "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif" }}>合格証</h1>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: COLORS.text, textAlign: 'center', margin: '0 0 3mm 0' }}>{certChapterNumber}</p>
+                      <p style={{ fontSize: '21px', fontWeight: 900, color: COLORS.text, textAlign: 'center', margin: '0 0 18mm 0' }}>{certCourseTitle}</p>
+                      <p style={{ fontSize: '23px', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: '0 0 auto 0' }}>{userName || 'ご入力者'} 殿</p>
+                      <p style={{ fontSize: '13px', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 auto 0' }}>
                         あなたは食のプロフェッショナル養成講座の<br />
                         「{certChapterNumber} {certCourseTitle}」の<br />
                         確認テストに合格致しましたので、ここに賞します。
                       </p>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', marginBottom: '10mm' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                         <p style={{ fontSize: '13px', color: '#334155', margin: 0 }}>{formatReiwaDate()}</p>
                         <div style={{ textAlign: 'right' }}>
                           <p style={{ fontSize: '11px', color: '#334155', margin: '0 0 2px 0' }}>{certIssuerRole}</p>

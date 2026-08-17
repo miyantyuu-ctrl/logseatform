@@ -737,7 +737,7 @@ export default function App() {
         </div>
       )}
 
-      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result', 'worksheet', 'worksheetReview'].includes(step) && (
+      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result', 'worksheetIntro', 'worksheet', 'worksheetReview'].includes(step) && (
         <div className="sticky top-0 z-[50] pt-4 px-2 md:px-4 pointer-events-none">
           <div className="bg-white/95 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg flex flex-row justify-between items-center gap-3 rounded-2xl pointer-events-auto relative">
             <div className="flex flex-col flex-1 min-w-0">
@@ -882,43 +882,6 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-[24px] border border-gray-200 p-4 md:p-6 shadow-inner">
-                  <h3 className="font-black text-[#182349] text-[14px] md:text-[16px] mb-3 flex items-center gap-2 pb-2 border-b border-gray-200">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#182349] inline-block"></span>
-                    {meta.intro2.noteTitle}
-                  </h3>
-                  <p className="text-[12px] md:text-[13px] text-gray-500 leading-relaxed mb-4">{meta.intro2.noteLead}</p>
-                  <p className="text-[13px] md:text-[14px] text-gray-700 font-medium leading-relaxed mb-5">{meta.intro2.noteBody}</p>
-                  <div className="bg-white p-4 rounded-2xl border border-gray-100 mb-5 shadow-sm">
-                    <p className="text-[10px] md:text-[11px] text-gray-400 font-extrabold mb-2.5 tracking-wider">{meta.intro2.exampleLabel}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {meta.intro2.examples.map((tagText, idx) => (
-                        <span key={idx} className="bg-orange-50 text-[#cb563e] px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold border border-orange-100 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#cb563e]"></span>
-                          {tagText}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="text-[13px] md:text-[14px] text-gray-700 leading-relaxed font-bold border-l-[4px] border-[#cb563e] pl-4 py-2 bg-white rounded-r-xl shadow-sm">
-                    {meta.intro2.emphasis.map((line, i) => <React.Fragment key={i}>{line}<br /></React.Fragment>)}
-                  </div>
-                </div>
-
-                <div className="bg-[#f4f7fc] rounded-[24px] border border-indigo-100 p-4 md:p-6 shadow-sm">
-                  <h3 className="font-black text-[#182349] text-[14px] md:text-[16px] mb-4 flex items-center gap-2 pb-2 border-b border-indigo-100">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#182349] inline-block"></span>
-                    {meta.intro2.checklistTitle}
-                  </h3>
-                  <div className="space-y-3.5">
-                    {meta.intro2.checklist.map((text, idx) => (
-                      <div key={idx} className="flex gap-2.5 items-start">
-                        <span className="text-[#182349] mt-1 flex-shrink-0"><CheckCircle className="w-4 h-4" /></span>
-                        <p className="text-[13px] md:text-[14px] leading-[1.6] text-gray-700 font-bold">{text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-8">
                 <button onClick={() => { setStep('intro1'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
@@ -1300,11 +1263,15 @@ export default function App() {
                       <div className="h-2 w-full" style={{ background: COLORS.gradientBar }}></div>
                       <div className="p-4 md:p-6">
                         <div className="flex justify-between items-start mb-4">
-                          <h3 className="text-lg md:text-xl font-black text-[#182349] flex items-center gap-2"><span className="text-[#cb563e]">Q{q.id}</span></h3>
+                          <h3 className="text-lg md:text-xl font-black text-[#182349] flex flex-wrap items-center gap-2">
+                            <span className="text-[#cb563e]">Q{q.id}</span>
+                            {q.topic && <span className="text-gray-400 font-bold text-[11px] md:text-[13px]">{q.topic}</span>}
+                          </h3>
                           <span className="bg-orange-50 text-[#cb563e] px-3 py-1 rounded-full text-xs font-bold border border-orange-100">{q.points}点</span>
                         </div>
                         <p className="text-[14px] md:text-[15px] font-bold text-gray-800 mb-4 whitespace-pre-wrap leading-relaxed">{q.question}</p>
                         {q.description && <p className="text-[13px] md:text-sm text-gray-600 mb-4 md:mb-6 bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-100 whitespace-pre-wrap">{q.description}</p>}
+                        {q.analysis && <p className="text-[13px] md:text-sm text-gray-700 mb-4 md:mb-6 bg-white p-3 md:p-4 rounded-xl border border-[#f0d9b5] whitespace-pre-wrap">{q.analysis}</p>}
                         {Graph && <Graph isPdf={false} />}
                         <div className="space-y-3">
                           {q.type === 'radio' && q.options.map(opt => (
@@ -1313,7 +1280,7 @@ export default function App() {
                               <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 flex-shrink-0 ${answers[q.id] === opt ? 'border-[#cb563e]' : 'border-gray-300'}`}>
                                 {answers[q.id] === opt && <span className="w-2.5 h-2.5 bg-[#cb563e] rounded-full"></span>}
                               </span>
-                              <span className="font-bold text-[13px] md:text-sm text-gray-700 leading-relaxed">{opt}</span>
+                              <span className="font-bold text-[13px] md:text-sm text-gray-700 leading-relaxed whitespace-pre-line">{opt}</span>
                             </label>
                           ))}
                           {q.type === 'checkbox' && q.options.map(opt => (
@@ -1388,7 +1355,10 @@ export default function App() {
                     return (
                       <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6 border-l-4 md:border-l-8 transition-all" style={{ borderColor: isP ? '#2563eb' : isPart ? '#eab308' : '#ef4444' }}>
                         <div className="flex justify-between items-start mb-3 md:mb-4">
-                          <h4 className="font-black text-[#182349] text-[15px] md:text-lg">Question {q.id}</h4>
+                          <h4 className="font-black text-[#182349] text-[15px] md:text-lg flex flex-wrap items-center gap-2">
+                            <span>Question {q.id}</span>
+                            {q.topic && <span className="text-gray-400 font-bold text-[11px] md:text-[13px]">{q.topic}</span>}
+                          </h4>
                           <span className={`font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs ${isP ? 'bg-blue-50 text-blue-700' : isPart ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
                             {isP ? '✓ CORRECT' : isPart ? `△ PARTIAL (${qScore}点)` : '× INCORRECT'}
                           </span>
@@ -1474,12 +1444,18 @@ export default function App() {
 
                         <div style={{ border: '1px solid #e2e8f0', borderLeft: `6px solid ${borderColor}`, borderRadius: '10px', padding: '5mm', flex: 1, overflow: 'hidden' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4mm' }}>
-                            <span style={{ display: 'inline-block', backgroundColor: COLORS.text, color: '#fff', fontWeight: 900, fontSize: '11px', borderRadius: '6px', padding: '3px 10px' }}>Q{q.id}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ display: 'inline-block', backgroundColor: COLORS.text, color: '#fff', fontWeight: 900, fontSize: '11px', borderRadius: '6px', padding: '3px 10px' }}>Q{q.id}</span>
+                              {q.topic && <span style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8' }}>{q.topic}</span>}
+                            </div>
                             <span style={{ fontSize: '11px', fontWeight: 900, color: statusColor }}>{statusLabel}</span>
                           </div>
                           <p style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: '0 0 4mm 0', whiteSpace: 'pre-wrap' }}>{q.question}</p>
                           {q.description && (
                             <p style={{ fontSize: '10px', color: '#475569', backgroundColor: '#f8fafc', borderRadius: '8px', padding: '3mm', margin: '0 0 4mm 0', whiteSpace: 'pre-wrap' }}>{q.description}</p>
+                          )}
+                          {q.analysis && (
+                            <p style={{ fontSize: '10px', color: '#334155', backgroundColor: '#fffdf6', border: '1px solid #f0d9b5', borderRadius: '8px', padding: '3mm', margin: '0 0 4mm 0', whiteSpace: 'pre-wrap' }}>{q.analysis}</p>
                           )}
                           {Graph && <Graph isPdf />}
                           <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '4mm', marginBottom: '4mm' }}>
@@ -1514,7 +1490,7 @@ export default function App() {
                       </button>
                       {meta.worksheet && (
                         <button
-                          onClick={() => { setStep('worksheet'); window.scrollTo(0, 0); }}
+                          onClick={() => { setStep(meta.worksheetIntro ? 'worksheetIntro' : 'worksheet'); window.scrollTo(0, 0); }}
                           className="w-full md:w-auto bg-[#182349] text-white px-6 md:px-10 py-4 md:py-5 rounded-[20px] font-black text-[15px] md:text-lg shadow-lg hover:bg-indigo-900 transition-all"
                         >
                           {meta.worksheet.entryButtonLabel || '実践課題に進む'}
@@ -1529,6 +1505,62 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9.5 問題10に進む前の案内（記入について・受講前に確認してください） */}
+          {step === 'worksheetIntro' && meta.worksheetIntro && (
+            <div className="animate-fade-in p-4 md:p-6 lg:p-10">
+              <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
+              <h2 className="text-[18px] md:text-[22px] font-black text-center text-[#182349] mb-6 pb-3 border-b border-gray-100">
+                {meta.worksheetIntro.heading}
+              </h2>
+              <div className="space-y-8 max-h-[58vh] overflow-y-auto pr-1">
+                <div className="bg-gray-50 rounded-[24px] border border-gray-200 p-4 md:p-6 shadow-inner">
+                  <h3 className="font-black text-[#182349] text-[14px] md:text-[16px] mb-3 flex items-center gap-2 pb-2 border-b border-gray-200">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#182349] inline-block"></span>
+                    {meta.worksheetIntro.noteTitle}
+                  </h3>
+                  <p className="text-[13px] md:text-[14px] text-gray-700 font-medium leading-relaxed mb-5">{meta.worksheetIntro.noteBody}</p>
+                  <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                    <p className="text-[10px] md:text-[11px] text-gray-400 font-extrabold mb-2.5 tracking-wider">{meta.worksheetIntro.exampleLabel}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {meta.worksheetIntro.examples.map((tagText, idx) => (
+                        <span key={idx} className="bg-orange-50 text-[#cb563e] px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold border border-orange-100 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#cb563e]"></span>
+                          {tagText}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#f4f7fc] rounded-[24px] border border-indigo-100 p-4 md:p-6 shadow-sm">
+                  <h3 className="font-black text-[#182349] text-[14px] md:text-[16px] mb-4 flex items-center gap-2 pb-2 border-b border-indigo-100">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#182349] inline-block"></span>
+                    {meta.worksheetIntro.checklistTitle}
+                  </h3>
+                  <div className="space-y-3.5">
+                    {meta.worksheetIntro.checklist.map((text, idx) => (
+                      <div key={idx} className="flex gap-2.5 items-start">
+                        <span className="text-[#182349] mt-1 flex-shrink-0"><CheckCircle className="w-4 h-4" /></span>
+                        <p className="text-[13px] md:text-[14px] leading-[1.6] text-gray-700 font-bold">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-8">
+                <button onClick={() => { setStep('result'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
+                  <ArrowLeft className="w-4 h-4" /> 戻る
+                </button>
+                <button
+                  onClick={() => { setStep('worksheet'); window.scrollTo(0, 0); }}
+                  className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                >
+                  {meta.worksheet?.entryButtonLabel || '設計課題（問題10）に進む'}
+                </button>
               </div>
             </div>
           )}
@@ -1558,7 +1590,7 @@ export default function App() {
                             value={worksheetAnswers[f.key] || ''}
                             onChange={(e) => handleWorksheetChange(f.key, e.target.value)}
                             placeholder={f.placeholder || ''}
-                            className="w-full h-16 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all"
+                            className={`w-full p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all ${ws.fields.length === 1 ? 'h-40 md:h-48' : 'h-16'}`}
                           />
                         </div>
                       ))}
@@ -1621,9 +1653,12 @@ export default function App() {
                     <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
                       <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{ws.number ? `${ws.number} ` : ''}{ws.title}
                     </h3>
-                    <div className="bg-gray-50 p-3 md:p-3.5 rounded-xl border border-gray-100 space-y-2 text-[12px] md:text-sm w-full">
+                    <div className="bg-gray-50 p-3 md:p-3.5 rounded-xl border border-gray-100 space-y-3 text-[12px] md:text-sm w-full">
                       {ws.fields.map(f => (
-                        <p key={f.key}><strong>{f.label}:</strong> {worksheetAnswers[f.key] || '未入力'}</p>
+                        <div key={f.key} className="space-y-1">
+                          {ws.fields.length > 1 && <p className="font-bold text-[#182349]">{f.label}</p>}
+                          <ReviewTextBox>{worksheetAnswers[f.key]}</ReviewTextBox>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1673,7 +1708,10 @@ export default function App() {
                           </h3>
                           <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.5' }}>
                             {ws.fields.map(f => (
-                              <p key={f.key} style={{ margin: '0 0 4px 0' }}><strong>{f.label}:</strong> {worksheetAnswers[f.key] || '未入力'}</p>
+                              <div key={f.key} style={{ marginBottom: '4px' }}>
+                                {ws.fields.length > 1 && <strong>{f.label}：</strong>}
+                                <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{worksheetAnswers[f.key] || '未入力'}</span>
+                              </div>
                             ))}
                           </div>
                         </div>

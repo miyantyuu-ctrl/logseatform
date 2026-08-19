@@ -3,6 +3,7 @@
 !/index-pc.html
 !/.gitignore
 !/edicode-test-system/
+!/edicode-test-system-review-before/
 !/.github/
 /edicode-test-system/node_modules/
 /edicode-test-system/dist/

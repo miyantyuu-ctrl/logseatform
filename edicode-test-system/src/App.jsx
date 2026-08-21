@@ -1409,7 +1409,7 @@ export default function App() {
                       <p style={{ fontSize: '26.9pt', fontWeight: 900, color: COLORS.text, textAlign: 'center', margin: '0 0 18mm 0', fontFamily: certFontFamily }}>{certCourseTitle}</p>
                       <p style={{ fontSize: '32.1pt', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: '0 0 auto 0', fontFamily: certFontFamily }}>{userName || 'ご入力者'} 殿</p>
                       <p style={{ fontSize: '21.1pt', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 auto 0', fontFamily: certFontFamily }}>
-                        あなたは食のプロフェッショナル養成講座の「{certChapterNumber} {certCourseTitle}」の確認テストに合格致しましたので<br />
+                        あなたは食のプロフェッショナル養成講座の「{certChapterNumber} {certCourseTitle}」の<span style={{ whiteSpace: 'nowrap' }}>確認テスト</span>に合格致しましたので<br />
                         ここに賞します。
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>

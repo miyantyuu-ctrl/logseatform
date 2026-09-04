@@ -96,10 +96,59 @@ export default function App() {
   const [answer1, setAnswer1] = useState({ part: '', symptom: '', reason: '' });
   const [answer2, setAnswer2] = useState({ doActions: '', okCriteria: '', nextAction: '' });
 
-  // meta.worksheet を使う汎用の記述式ワークシート（例: test4-nikuの「問題10」設計課題）
+  // meta.worksheet を使う汎用のワークシート（例: test4-nikuの「問題10」設計課題）
   const [worksheetAnswers, setWorksheetAnswers] = useState({});
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const handleWorksheetChange = (key, val) => {
     setWorksheetAnswers(p => ({ ...p, [key]: val }));
+  };
+
+  // ワークシートの各項目（number/scale/judgement/text）を採点する。
+  // number: correctRange [min, max] の範囲内かどうか。scale/judgement: correctValues に含まれるかどうか。
+  // text（自由記述の理由欄など）は採点対象外（null）。
+  const getWorksheetItemResult = (item, rawValue) => {
+    if (item.type === 'text') return null;
+    if (rawValue === undefined || rawValue === null || rawValue === '') return false;
+    if (item.type === 'number') {
+      const num = parseFloat(rawValue);
+      if (Number.isNaN(num) || !item.correctRange) return false;
+      const [min, max] = item.correctRange;
+      return num >= min && num <= max;
+    }
+    if (item.type === 'scale') {
+      const leading = parseInt(String(rawValue).split('｜')[0], 10);
+      return !Number.isNaN(leading) && (item.correctValues || []).includes(leading);
+    }
+    if (item.type === 'judgement') {
+      return (item.correctValues || []).includes(rawValue);
+    }
+    return false;
+  };
+
+  // meta.worksheet.steps 全体から採点可能な項目を集計し、正解数/対象数を返す。
+  const getWorksheetScoreSummary = () => {
+    if (!meta.worksheet?.steps) return { correct: 0, total: 0 };
+    let correct = 0, total = 0;
+    meta.worksheet.steps.forEach(ws => {
+      (ws.problems || []).forEach(p => {
+        (p.items || []).forEach(item => {
+          const result = getWorksheetItemResult(item, worksheetAnswers[item.key]);
+          if (result === null) return;
+          total += 1;
+          if (result) correct += 1;
+        });
+      });
+    });
+    return { correct, total };
+  };
+
+  // 全STEPの全problemsをPDFページ単位にフラット化（1問題＝1ページ）。ページが崩れないよう、
+  // ステップをまたいでまとめず、問題ごとに独立したページIDを振る。
+  const getWorksheetPdfProblems = () => {
+    if (!meta.worksheet?.steps) return [];
+    return meta.worksheet.steps.flatMap(ws =>
+      (ws.problems || []).map(p => ({ ...p, stepNumber: ws.number, stepTitle: ws.title }))
+    );
   };
 
   const [currentDraftId, setCurrentDraftId] = useState(null);
@@ -517,8 +566,8 @@ export default function App() {
     setIsGenerating(true);
     try {
       const cleanUserName = (userName || '').trim() ? userName.trim().replace(/[/\?%*:|"<>\s]/g, '_') : '名前未入力';
-      const stepPageCount = Math.ceil((meta.worksheet?.steps?.length || 0) / 2);
-      const pageIds = Array.from({ length: stepPageCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
+      const problemCount = getWorksheetPdfProblems().length;
+      const pageIds = Array.from({ length: problemCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
       const ok = await renderPagesToPdf(pageIds, meta.pdfWorksheetFileName(cleanUserName));
       setIsGenerating(false);
       if (ok) showToast('設計課題レポートを保存しました');
@@ -1565,60 +1614,77 @@ export default function App() {
             </div>
           )}
 
-          {/* 10. 記述式ワークシート（meta.worksheet がある場合のみ表示） */}
+          {/* 10. ワークシート（meta.worksheet がある場合のみ表示） */}
           {step === 'worksheet' && meta.worksheet && (
             <div className="animate-fade-in p-4 md:p-6 lg:p-8">
               <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
-              <h2 className="text-[18px] md:text-[22px] font-black text-[#182349] mb-2 pb-2 border-b border-gray-100">{meta.worksheet.heading}</h2>
+              <div className="flex justify-between items-start gap-3 mb-2">
+                <h2 className="text-[18px] md:text-[22px] font-black text-[#182349] pb-2 border-b border-gray-100 flex-1">{meta.worksheet.heading}</h2>
+                {meta.worksheet.plan && (
+                  <button
+                    onClick={() => setShowPlanModal(true)}
+                    className="flex-shrink-0 px-3 py-2 bg-[#182349] text-white rounded-xl text-[11px] md:text-[13px] font-bold hover:bg-indigo-900 transition-all whitespace-nowrap"
+                  >
+                    料理のゴールを確認する
+                  </button>
+                )}
+              </div>
               {meta.worksheet.intro?.map((line, i) => (
                 <p key={i} className="text-[12px] md:text-[13px] text-gray-600 leading-relaxed mb-2 whitespace-pre-wrap">{line}</p>
               ))}
 
               <div className="max-h-[66vh] overflow-y-auto pr-2 space-y-6 md:space-y-8 py-4" style={{ scrollbarGutter: 'stable' }}>
-                {meta.worksheet.steps.map((ws, wsIdx) => (
-                  <div key={ws.id} className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-4">
-                    <h3 className="text-[16px] md:text-[18px] font-black text-[#182349] border-b pb-2 flex items-center gap-2">
+                {meta.worksheet.steps.map((ws) => (
+                  <div key={ws.id} className="space-y-4">
+                    <h3 className="text-[16px] md:text-[18px] font-black text-[#182349] border-b-2 border-[#182349] pb-2 flex items-center gap-2">
                       <span className="w-2.5 h-6 rounded-md bg-[#cb563e] inline-block"></span>
-                      {ws.number ? `${ws.number} ` : ''}{ws.title}
+                      {ws.number ? `${ws.number}｜` : ''}{ws.title}
                     </h3>
                     {ws.lead && <p className="text-[12px] md:text-[13px] text-gray-500 leading-relaxed whitespace-pre-wrap">{ws.lead}</p>}
-                    <div className="space-y-3">
-                      {ws.fields.map(f => (
-                        <div key={f.key} className="space-y-1">
-                          <label className="block text-[12px] md:text-[13px] font-bold text-[#182349]">{f.label}</label>
-                          <textarea
-                            value={worksheetAnswers[f.key] || ''}
-                            onChange={(e) => handleWorksheetChange(f.key, e.target.value)}
-                            placeholder={f.placeholder || ''}
-                            className={`w-full p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all ${ws.fields.length === 1 ? 'h-40 md:h-48' : 'h-16'}`}
-                          />
+                    {(ws.problems || []).map(problem => (
+                      <div key={problem.id} className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
+                        <p className="text-[13px] md:text-[15px] font-black text-[#182349]">{problem.label}</p>
+                        {problem.lead && <p className="text-[11px] md:text-[12px] text-gray-500 leading-relaxed whitespace-pre-wrap">{problem.lead}</p>}
+                        <div className="space-y-3">
+                          {problem.items.map(item => (
+                            <div key={item.key} className="space-y-1">
+                              <label className="block text-[12px] md:text-[13px] font-bold text-[#182349] whitespace-pre-wrap">{item.label}</label>
+                              {item.type === 'number' && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    value={worksheetAnswers[item.key] || ''}
+                                    onChange={(e) => handleWorksheetChange(item.key, e.target.value)}
+                                    className="w-32 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] font-bold outline-none focus:border-[#cb563e] transition-all"
+                                  />
+                                  {item.unit && <span className="text-[13px] font-bold text-gray-500">{item.unit}</span>}
+                                </div>
+                              )}
+                              {(item.type === 'scale' || item.type === 'judgement') && (
+                                <select
+                                  value={worksheetAnswers[item.key] || ''}
+                                  onChange={(e) => handleWorksheetChange(item.key, e.target.value)}
+                                  className="w-full p-3 border-2 rounded-lg bg-white font-bold text-[13px] md:text-sm outline-none border-gray-200 focus:border-[#cb563e]"
+                                >
+                                  <option value="">選択してください</option>
+                                  {item.options.map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              )}
+                              {item.type === 'text' && (
+                                <textarea
+                                  value={worksheetAnswers[item.key] || ''}
+                                  onChange={(e) => handleWorksheetChange(item.key, e.target.value)}
+                                  placeholder={item.placeholder || ''}
+                                  className="w-full h-24 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all"
+                                />
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
-
-                {meta.worksheet.reasoningField && (
-                  <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
-                    <label className="block text-[13px] md:text-[14px] font-black text-[#182349]">{meta.worksheet.reasoningField.label}</label>
-                    <textarea
-                      value={worksheetAnswers[meta.worksheet.reasoningField.key] || ''}
-                      onChange={(e) => handleWorksheetChange(meta.worksheet.reasoningField.key, e.target.value)}
-                      className="w-full h-28 p-2.5 md:p-3 border-2 border-gray-200 rounded-xl bg-white text-[13px] md:text-[14px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all whitespace-pre-wrap break-all"
-                    />
-                  </div>
-                )}
-
-                {meta.worksheet.notesField && (
-                  <div className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
-                    <label className="block text-[13px] md:text-[14px] font-black text-[#182349]">{meta.worksheet.notesField.label}</label>
-                    <textarea
-                      value={worksheetAnswers[meta.worksheet.notesField.key] || ''}
-                      onChange={(e) => handleWorksheetChange(meta.worksheet.notesField.key, e.target.value)}
-                      className="w-full h-24 p-2.5 md:p-3 border-2 border-gray-200 rounded-xl bg-white text-[13px] md:text-[14px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all whitespace-pre-wrap break-all"
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full mt-6">
@@ -1632,16 +1698,95 @@ export default function App() {
             </div>
           )}
 
+          {/* Plan（ゴール設計）参照モーダル。ワークシート回答中いつでも開ける */}
+          {showPlanModal && meta.worksheet?.plan && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)' }} onClick={() => setShowPlanModal(false)}>
+              <div className="bg-white rounded-[24px] max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 md:p-8 relative" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setShowPlanModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-black text-xl">×</button>
+                <h2 className="text-[18px] md:text-[20px] font-black text-[#182349] mb-1 pb-3 border-b-2 border-[#182349]">{meta.worksheet.plan.heading}</h2>
+                {meta.worksheet.plan.lead && <p className="text-[12px] md:text-[13px] text-gray-500 mt-3 mb-4">{meta.worksheet.plan.lead}</p>}
+
+                {meta.worksheet.plan.situation && (
+                  <div className="mb-5">
+                    <SectionHeading>{meta.worksheet.plan.situation.title}</SectionHeading>
+                    <div className="mt-2 space-y-1.5">
+                      {meta.worksheet.plan.situation.rows.map((row, i) => (
+                        <p key={i} className="text-[12px] md:text-[13px] text-gray-700"><span className="font-bold text-[#182349]">{row.label}：</span>{row.value}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.visual && (
+                  <div className="mb-5">
+                    <SectionHeading>{meta.worksheet.plan.visual.title}</SectionHeading>
+                    <ul className="mt-2 text-[12px] md:text-[13px] text-gray-700 leading-relaxed list-disc pl-5 space-y-1">
+                      {meta.worksheet.plan.visual.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.tasteGoal && (
+                  <div className="mb-5">
+                    <SectionHeading>{meta.worksheet.plan.tasteGoal.title}</SectionHeading>
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-[11px] md:text-[12px] border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            {meta.worksheet.plan.tasteGoal.columns.map((c, i) => (
+                              <th key={i} className="border border-gray-200 p-2 text-left font-black text-[#182349]">{c}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {meta.worksheet.plan.tasteGoal.rows.map((row, ri) => (
+                            <tr key={ri}>
+                              {row.map((cell, ci) => (
+                                <td key={ci} className="border border-gray-200 p-2 align-top text-gray-700 whitespace-pre-wrap">{cell}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.conditions && (
+                  <div>
+                    <SectionHeading accent>{meta.worksheet.plan.conditions.title}</SectionHeading>
+                    <ul className="mt-2 text-[12px] md:text-[13px] text-gray-700 leading-relaxed list-disc pl-5 space-y-1">
+                      {meta.worksheet.plan.conditions.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                    {meta.worksheet.plan.conditions.note && (
+                      <p className="text-[11px] text-gray-400 mt-2">{meta.worksheet.plan.conditions.note}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 11. ワークシート確認画面・PDF出力 */}
-          {step === 'worksheetReview' && meta.worksheet && (
+          {step === 'worksheetReview' && meta.worksheet && (() => {
+            const pdfProblems = getWorksheetPdfProblems();
+            const { correct: wsCorrect, total: wsTotal } = getWorksheetScoreSummary();
+            return (
             <div className="animate-fade-in p-4 md:p-6 lg:p-8">
               <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
-              <h2 className="text-[18px] md:text-[22px] font-black text-center text-[#182349] mb-4 md:mb-6 pb-3 border-b border-gray-100">入力内容の確認</h2>
-              <p className="text-[12px] md:text-[13px] text-gray-500 text-center mb-4 md:mb-6 leading-relaxed">
+              <h2 className="text-[18px] md:text-[22px] font-black text-center text-[#182349] mb-2 pb-3 border-b border-gray-100">入力内容の確認</h2>
+              <p className="text-[12px] md:text-[13px] text-gray-500 text-center mb-4 leading-relaxed">
                 記入内容を確認してください。<br />修正したい場合は「戻る」から前のページに戻れます。<br />内容に問題なければ、PDFとして保存してください。
               </p>
+              {wsTotal > 0 && (
+                <div className="text-center mb-4 md:mb-6">
+                  <span className="inline-block px-5 py-2 rounded-full font-bold text-[13px] md:text-base border-2 bg-indigo-50 text-[#182349] border-indigo-200">
+                    選択式の項目：{wsCorrect} / {wsTotal} 正解（参考情報です。判定に問題があれば「戻る」から修正できます）
+                  </span>
+                </div>
+              )}
 
-              <div className="bg-white p-4 md:p-6 lg:p-8 rounded-2xl border border-gray-100 space-y-4 md:space-y-6 mb-6 md:mb-8 text-[#182349] w-full max-w-full box-border">
+              <div className="bg-white p-4 md:p-6 lg:p-8 rounded-2xl border border-gray-100 space-y-6 md:space-y-8 mb-6 md:mb-8 text-[#182349] w-full max-w-full box-border">
                 <div className="text-center border-b pb-4 md:pb-6 border-gray-100">
                   <p className="text-[#cb563e] font-extrabold text-[11px] md:text-[12px] uppercase tracking-wider mb-1">{meta.worksheetPdfHeaderNote}</p>
                   <h1 className="text-[18px] md:text-[20px] lg:text-[24px] font-[900] text-[#182349] leading-tight">{meta.chapterLabel}<br />{meta.themeLabel}</h1>
@@ -1649,97 +1794,89 @@ export default function App() {
                   <p className="text-[10px] md:text-[11px] text-gray-400 mt-1">保存日: {new Date().toLocaleDateString('ja-JP')}</p>
                 </div>
                 {meta.worksheet.steps.map(ws => (
-                  <div key={ws.id} className="space-y-2">
-                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
-                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{ws.number ? `${ws.number} ` : ''}{ws.title}
+                  <div key={ws.id} className="space-y-4">
+                    <h3 className="text-[14px] md:text-[16px] font-black text-[#182349] flex items-center gap-1.5 border-b-2 border-[#182349] pb-1.5">
+                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{ws.number ? `${ws.number}｜` : ''}{ws.title}
                     </h3>
-                    <div className="bg-gray-50 p-3 md:p-3.5 rounded-xl border border-gray-100 space-y-3 text-[12px] md:text-sm w-full">
-                      {ws.fields.map(f => (
-                        <div key={f.key} className="space-y-1">
-                          {ws.fields.length > 1 && <p className="font-bold text-[#182349]">{f.label}</p>}
-                          <ReviewTextBox>{worksheetAnswers[f.key]}</ReviewTextBox>
-                        </div>
-                      ))}
-                    </div>
+                    {(ws.problems || []).map(problem => (
+                      <div key={problem.id} className="bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-100 space-y-2.5 text-[12px] md:text-sm w-full">
+                        <p className="font-black text-[#cb563e]">{problem.label}</p>
+                        {problem.items.map(item => {
+                          const val = worksheetAnswers[item.key];
+                          const result = getWorksheetItemResult(item, val);
+                          const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
+                          return (
+                            <div key={item.key} className="space-y-0.5">
+                              <p className="font-bold text-[#182349]">{item.label}</p>
+                              {item.type === 'text' ? (
+                                <ReviewTextBox>{val}</ReviewTextBox>
+                              ) : (
+                                <p className={`font-bold whitespace-pre-wrap ${result === true ? 'text-blue-700' : result === false ? 'text-red-600' : 'text-gray-700'}`}>
+                                  {displayVal}{result === true ? '　✓' : result === false ? '　×' : ''}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {problem.explanation && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <p className="text-[10px] md:text-[11px] font-extrabold text-[#cb563e] mb-1">▼ 解説・回答例</p>
+                            <p className="text-[11px] md:text-[12px] text-gray-600 leading-relaxed whitespace-pre-wrap">{problem.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ))}
-                {meta.worksheet.reasoningField && (
-                  <div className="space-y-2">
-                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
-                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{meta.worksheet.reasoningField.label}
-                    </h3>
-                    <ReviewTextBox>{worksheetAnswers[meta.worksheet.reasoningField.key]}</ReviewTextBox>
-                  </div>
-                )}
-                {meta.worksheet.notesField && (
-                  <div className="space-y-2">
-                    <h3 className="text-[13px] md:text-sm font-black text-[#cb563e] flex items-center gap-1.5 border-b pb-1 border-gray-100">
-                      <span className="w-1.5 h-4 bg-[#cb563e] rounded-sm"></span>{meta.worksheet.notesField.label}
-                    </h3>
-                    <ReviewTextBox>{worksheetAnswers[meta.worksheet.notesField.key]}</ReviewTextBox>
-                  </div>
-                )}
               </div>
 
-              {/* PDF出力用の非表示DOM（STEPを2つずつまとめてページ化 + 最後に説明・補足のページ） */}
+              {/* PDF出力用の非表示DOM（表紙1ページ＋問題（A〜F・食感/風味確認）ごとに1ページ） */}
               <div style={{ position: 'absolute', left: '-9999px', top: '0', width: '210mm' }}>
-                {(() => {
-                  const steps = meta.worksheet.steps;
-                  const chunks = [];
-                  for (let i = 0; i < steps.length; i += 2) chunks.push(steps.slice(i, i + 2));
-                  return chunks.map((chunk, pageIdx) => (
-                    <div key={pageIdx} id={`pdf-worksheet-page-${pageIdx + 1}`} style={pdfPageContainerStyle}>
-                      {pageIdx === 0 ? (
-                        <div className="text-center border-b pb-6 border-gray-200 mb-8">
-                          <p style={{ color: COLORS.accent, fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>{meta.worksheetPdfHeaderNote}</p>
-                          <h1 style={{ fontSize: '24px', fontWeight: '900', color: COLORS.text, lineHeight: '1.3', margin: '0 0 12px 0' }}>{meta.chapterLabel}<br />{meta.themeLabel}</h1>
-                          <p style={{ fontSize: '15px', fontWeight: 'bold', color: COLORS.accent, margin: '6px 0 0 0' }}>【記入者名】 {userName || '（名前未入力）'}</p>
-                          <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0 0' }}>保存日: {new Date().toLocaleDateString('ja-JP')}</p>
-                        </div>
-                      ) : (
-                        <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
-                        </div>
-                      )}
-                      {chunk.map(ws => (
-                        <div key={ws.id} style={{ marginBottom: '16px' }}>
-                          <h3 style={{ fontSize: '13px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '8px' }}>
-                            {ws.number ? `${ws.number} ` : ''}{ws.title}
-                          </h3>
-                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.5' }}>
-                            {ws.fields.map(f => (
-                              <div key={f.key} style={{ marginBottom: '4px' }}>
-                                {ws.fields.length > 1 && <strong>{f.label}：</strong>}
-                                <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{worksheetAnswers[f.key] || '未入力'}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ));
-                })()}
-                <div id={`pdf-worksheet-page-${Math.ceil(meta.worksheet.steps.length / 2) + 1}`} style={pdfPageContainerStyle}>
-                  <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                    <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+                <div id="pdf-worksheet-page-1" style={pdfPageContainerStyle}>
+                  <div className="text-center border-b pb-6 border-gray-200 mb-8">
+                    <p style={{ color: COLORS.accent, fontWeight: '900', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>{meta.worksheetPdfHeaderNote}</p>
+                    <h1 style={{ fontSize: '24px', fontWeight: '900', color: COLORS.text, lineHeight: '1.3', margin: '0 0 12px 0' }}>{meta.chapterLabel}<br />{meta.themeLabel}</h1>
+                    <p style={{ fontSize: '15px', fontWeight: 'bold', color: COLORS.accent, margin: '6px 0 0 0' }}>【記入者名】 {userName || '（名前未入力）'}</p>
+                    <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0 0' }}>保存日: {new Date().toLocaleDateString('ja-JP')}</p>
+                    {wsTotal > 0 && (
+                      <p style={{ fontSize: '13px', fontWeight: 'bold', color: COLORS.text, margin: '10px 0 0 0' }}>選択式の項目：{wsCorrect} / {wsTotal} 正解</p>
+                    )}
                   </div>
-                  {meta.worksheet.reasoningField && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>{meta.worksheet.reasoningField.label}</h3>
-                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                        {worksheetAnswers[meta.worksheet.reasoningField.key] || '未入力'}
-                      </div>
-                    </div>
-                  )}
-                  {meta.worksheet.notesField && (
-                    <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: '900', color: COLORS.accent, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>{meta.worksheet.notesField.label}</h3>
-                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '11px', lineHeight: '1.4', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                        {worksheetAnswers[meta.worksheet.notesField.key] || '未入力'}
-                      </div>
-                    </div>
-                  )}
+                  <h2 style={{ fontSize: '14px', fontWeight: 900, color: COLORS.text, margin: 0 }}>{meta.worksheet.heading}</h2>
                 </div>
+                {pdfProblems.map((problem, pIdx) => (
+                  <div key={problem.id} id={`pdf-worksheet-page-${pIdx + 2}`} style={pdfPageContainerStyle}>
+                    <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                      <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+                      <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.accent, margin: '2px 0 0 0' }}>{problem.stepNumber ? `${problem.stepNumber}｜${problem.stepTitle}` : ''}</p>
+                    </div>
+                    <h3 style={{ fontSize: '15px', fontWeight: '900', color: COLORS.text, marginBottom: '8px' }}>{problem.label}</h3>
+                    {problem.lead && <p style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{problem.lead}</p>}
+                    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.6' }}>
+                      {problem.items.map(item => {
+                        const val = worksheetAnswers[item.key];
+                        const result = getWorksheetItemResult(item, val);
+                        const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
+                        return (
+                          <div key={item.key} style={{ marginBottom: '6px' }}>
+                            <strong>{item.label}：</strong>
+                            {item.type === 'text' ? (
+                              <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{val || '未入力'}</span>
+                            ) : (
+                              <span style={{ color: result === true ? '#1d4ed8' : result === false ? '#dc2626' : '#334155' }}>{displayVal}{result === true ? ' ✓' : result === false ? ' ×' : ''}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {problem.explanation && (
+                      <div style={{ marginTop: '10px', backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px' }}>
+                        <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 4px 0' }}>▼ 解説・回答例</p>
+                        <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{problem.explanation}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full mt-6">
@@ -1751,7 +1888,8 @@ export default function App() {
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
         </div>
       </div>

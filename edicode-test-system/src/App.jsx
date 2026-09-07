@@ -786,7 +786,7 @@ export default function App() {
         </div>
       )}
 
-      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result', 'worksheetIntro', 'worksheet', 'worksheetReview'].includes(step) && (
+      {['premise', 'answer1', 'answer2', 'review', 'quiz', 'result', 'worksheetIntro', 'worksheetPlan', 'worksheet', 'worksheetReview'].includes(step) && (
         <div className="sticky top-0 z-[50] pt-4 px-2 md:px-4 pointer-events-none">
           <div className="bg-white/95 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg flex flex-row justify-between items-center gap-3 rounded-2xl pointer-events-auto relative">
             <div className="flex flex-col flex-1 min-w-0">
@@ -1566,23 +1566,16 @@ export default function App() {
                 {meta.worksheetIntro.heading}
               </h2>
               <div className="space-y-8 max-h-[58vh] overflow-y-auto pr-1">
+                {meta.worksheetIntro.description?.map((line, i) => (
+                  <p key={i} className="text-[13px] md:text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap">{line}</p>
+                ))}
+
                 <div className="bg-gray-50 rounded-[24px] border border-gray-200 p-4 md:p-6 shadow-inner">
                   <h3 className="font-black text-[#182349] text-[14px] md:text-[16px] mb-3 flex items-center gap-2 pb-2 border-b border-gray-200">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#182349] inline-block"></span>
                     {meta.worksheetIntro.noteTitle}
                   </h3>
-                  <p className="text-[13px] md:text-[14px] text-gray-700 font-medium leading-relaxed mb-5">{meta.worksheetIntro.noteBody}</p>
-                  <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                    <p className="text-[10px] md:text-[11px] text-gray-400 font-extrabold mb-2.5 tracking-wider">{meta.worksheetIntro.exampleLabel}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {meta.worksheetIntro.examples.map((tagText, idx) => (
-                        <span key={idx} className="bg-orange-50 text-[#cb563e] px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold border border-orange-100 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#cb563e]"></span>
-                          {tagText}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-[13px] md:text-[14px] text-gray-700 font-medium leading-relaxed">{meta.worksheetIntro.noteBody}</p>
                 </div>
 
                 <div className="bg-[#f4f7fc] rounded-[24px] border border-indigo-100 p-4 md:p-6 shadow-sm">
@@ -1599,16 +1592,121 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+
+                {meta.worksheetIntro.nextFlow && (
+                  <div className="bg-[#fffcf9] rounded-[24px] border border-orange-100 p-4 md:p-6 shadow-sm">
+                    <h3 className="font-black text-[#cb563e] text-[14px] md:text-[16px] mb-3 flex items-center gap-2 pb-2 border-b border-orange-100">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#cb563e] inline-block"></span>
+                      これからの流れ
+                    </h3>
+                    <div className="space-y-2.5">
+                      {meta.worksheetIntro.nextFlow.map((text, idx) => (
+                        <div key={idx} className="flex gap-3 items-start">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-50 text-[#cb563e] flex items-center justify-center font-black text-[12px] border border-orange-100">{idx + 1}</div>
+                          <p className="text-[13px] md:text-[14px] leading-[1.6] text-gray-700 font-bold pt-0.5">{text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-8">
                 <button onClick={() => { setStep('result'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
                   <ArrowLeft className="w-4 h-4" /> 戻る
                 </button>
                 <button
+                  onClick={() => { setStep(meta.worksheet?.plan ? 'worksheetPlan' : 'worksheet'); window.scrollTo(0, 0); }}
+                  className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                >
+                  今回の料理のゴールを確認する
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 問題10の直前に表示する「今回の料理のゴール」ページ（meta.worksheet.plan） */}
+          {step === 'worksheetPlan' && meta.worksheet?.plan && (
+            <div className="animate-fade-in p-4 md:p-6 lg:p-10">
+              <div className="h-[14px] w-full absolute top-0 left-0" style={{ background: COLORS.gradientBar }}></div>
+              <h2 className="text-[18px] md:text-[22px] font-black text-center text-[#182349] mb-1 pb-3 border-b-2 border-[#182349]">{meta.worksheet.plan.heading}</h2>
+              {meta.worksheet.plan.lead && <p className="text-[12px] md:text-[13px] text-gray-500 text-center mt-3 mb-4">{meta.worksheet.plan.lead}</p>}
+
+              <div className="max-h-[58vh] overflow-y-auto pr-1 space-y-6">
+                {meta.worksheet.plan.situation && (
+                  <div>
+                    <SectionHeading>{meta.worksheet.plan.situation.title}</SectionHeading>
+                    <div className="mt-2 space-y-1.5">
+                      {meta.worksheet.plan.situation.rows.map((row, i) => (
+                        <p key={i} className="text-[12px] md:text-[13px] text-gray-700"><span className="font-bold text-[#182349]">{row.label}：</span>{row.value}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.visual && (
+                  <div>
+                    <SectionHeading>{meta.worksheet.plan.visual.title}</SectionHeading>
+                    {meta.worksheet.plan.visual.imageUrl && (
+                      <img
+                        src={`${import.meta.env.BASE_URL}${meta.worksheet.plan.visual.imageUrl}`}
+                        alt={meta.worksheet.plan.visual.title}
+                        className="w-full max-w-md mx-auto rounded-2xl border border-gray-100 mt-3 mb-3"
+                      />
+                    )}
+                    <ul className="mt-2 text-[12px] md:text-[13px] text-gray-700 leading-relaxed list-disc pl-5 space-y-1">
+                      {meta.worksheet.plan.visual.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.tasteGoal && (
+                  <div>
+                    <SectionHeading>{meta.worksheet.plan.tasteGoal.title}</SectionHeading>
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-[11px] md:text-[12px] border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            {meta.worksheet.plan.tasteGoal.columns.map((c, i) => (
+                              <th key={i} className="border border-gray-200 p-2 text-left font-black text-[#182349]">{c}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {meta.worksheet.plan.tasteGoal.rows.map((row, ri) => (
+                            <tr key={ri}>
+                              {row.map((cell, ci) => (
+                                <td key={ci} className="border border-gray-200 p-2 align-top text-gray-700 whitespace-pre-wrap">{cell}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {meta.worksheet.plan.conditions && (
+                  <div>
+                    <SectionHeading accent>{meta.worksheet.plan.conditions.title}</SectionHeading>
+                    <ul className="mt-2 text-[12px] md:text-[13px] text-gray-700 leading-relaxed list-disc pl-5 space-y-1">
+                      {meta.worksheet.plan.conditions.bullets.map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                    {meta.worksheet.plan.conditions.note && (
+                      <p className="text-[11px] text-gray-400 mt-2">{meta.worksheet.plan.conditions.note}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-8">
+                <button onClick={() => { setStep('worksheetIntro'); window.scrollTo(0, 0); }} className="w-full sm:w-auto px-4 md:px-6 py-3 md:py-4 rounded-[20px] font-bold text-gray-400 hover:text-gray-600 text-[14px] md:text-[16px] transition-all flex items-center justify-center gap-2">
+                  <ArrowLeft className="w-4 h-4" /> 戻る
+                </button>
+                <button
                   onClick={() => { setStep('worksheet'); window.scrollTo(0, 0); }}
                   className="w-full sm:flex-1 py-3 md:py-4 bg-[#cb563e] text-white rounded-[20px] font-black text-[16px] md:text-[18px] shadow-lg hover:brightness-110 active:scale-95 transition-all"
                 >
-                  {meta.worksheet?.entryButtonLabel || '設計課題（問題10）に進む'}
+                  {meta.worksheet?.entryButtonLabel || 'STEP1の問題へ進む'}
                 </button>
               </div>
             </div>
@@ -1640,6 +1738,13 @@ export default function App() {
                       <span className="w-2.5 h-6 rounded-md bg-[#cb563e] inline-block"></span>
                       {ws.number ? `${ws.number}｜` : ''}{ws.title}
                     </h3>
+                    {ws.diagramUrl && (
+                      <img
+                        src={`${import.meta.env.BASE_URL}${ws.diagramUrl}`}
+                        alt="鴨胸肉の断面図"
+                        className="w-full max-w-md mx-auto rounded-2xl border border-gray-100"
+                      />
+                    )}
                     {ws.lead && <p className="text-[12px] md:text-[13px] text-gray-500 leading-relaxed whitespace-pre-wrap">{ws.lead}</p>}
                     {(ws.problems || []).map(problem => (
                       <div key={problem.id} className="bg-gray-50 p-4 md:p-5 rounded-2xl border border-gray-100 space-y-3">
@@ -1720,6 +1825,13 @@ export default function App() {
                 {meta.worksheet.plan.visual && (
                   <div className="mb-5">
                     <SectionHeading>{meta.worksheet.plan.visual.title}</SectionHeading>
+                    {meta.worksheet.plan.visual.imageUrl && (
+                      <img
+                        src={`${import.meta.env.BASE_URL}${meta.worksheet.plan.visual.imageUrl}`}
+                        alt={meta.worksheet.plan.visual.title}
+                        className="w-full max-w-md mx-auto rounded-2xl border border-gray-100 mt-3 mb-3"
+                      />
+                    )}
                     <ul className="mt-2 text-[12px] md:text-[13px] text-gray-700 leading-relaxed list-disc pl-5 space-y-1">
                       {meta.worksheet.plan.visual.bullets.map((b, i) => <li key={i}>{b}</li>)}
                     </ul>

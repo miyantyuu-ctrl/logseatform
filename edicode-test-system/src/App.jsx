@@ -107,7 +107,7 @@ export default function App() {
   // number: correctRange [min, max] の範囲内かどうか。scale/judgement: correctValues に含まれるかどうか。
   // text（自由記述の理由欄など）は採点対象外（null）。
   const getWorksheetItemResult = (item, rawValue) => {
-    if (item.type === 'text') return null;
+    if (item.type === 'text' || item.type === 'shortText') return null;
     if (rawValue === undefined || rawValue === null || rawValue === '') return false;
     if (item.type === 'number') {
       const num = parseFloat(rawValue);
@@ -1781,6 +1781,15 @@ export default function App() {
                                   onChange={(e) => handleWorksheetChange(item.key, e.target.value)}
                                   placeholder={item.placeholder || ''}
                                   className="w-full h-24 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] leading-relaxed outline-none focus:border-[#cb563e] resize-none transition-all placeholder-gray-300 whitespace-pre-wrap break-all"
+                                />
+                              )}
+                              {item.type === 'shortText' && (
+                                <input
+                                  type="text"
+                                  value={worksheetAnswers[item.key] || ''}
+                                  onChange={(e) => handleWorksheetChange(item.key, e.target.value)}
+                                  placeholder={item.placeholder || ''}
+                                  className="w-32 p-2.5 border-2 border-gray-200 rounded-xl bg-white text-[13px] font-bold outline-none focus:border-[#cb563e] transition-all placeholder-gray-300"
                                 />
                               )}
                             </div>

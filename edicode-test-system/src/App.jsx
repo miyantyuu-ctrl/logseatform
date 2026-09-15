@@ -107,7 +107,7 @@ export default function App() {
   // number: correctRange [min, max] の範囲内かどうか。scale/judgement: correctValues に含まれるかどうか。
   // text（自由記述の理由欄など）は採点対象外（null）。
   const getWorksheetItemResult = (item, rawValue) => {
-    if (item.type === 'text' || item.type === 'shortText') return null;
+    if (item.type === 'text' || item.type === 'shortText' || item.type === 'note') return null;
     if (rawValue === undefined || rawValue === null || rawValue === '') return false;
     if (item.type === 'number') {
       const num = parseFloat(rawValue);
@@ -142,13 +142,36 @@ export default function App() {
     return { correct, total };
   };
 
-  // 全STEPの全problemsをPDFページ単位にフラット化（1問題＝1ページ）。ページが崩れないよう、
-  // ステップをまたいでまとめず、問題ごとに独立したページIDを振る。
+  // 全STEPの全problemsをフラット化し、各problemにstepNumber/stepTitleを付与する。
   const getWorksheetPdfProblems = () => {
     if (!meta.worksheet?.steps) return [];
     return meta.worksheet.steps.flatMap(ws =>
       (ws.problems || []).map(p => ({ ...p, stepNumber: ws.number, stepTitle: ws.title }))
     );
+  };
+
+  // problemsを内容量（項目数＋解説文の長さ）で見積もり、1ページに収まりそうな分だけ
+  // まとめて詰めていく（余白が多くなりすぎないよう、問題A・Bのような小さい問題は
+  // 同じページにまとめる）。ページ内では元の並び順（ステップ順）を維持する。
+  const getWorksheetPdfPages = () => {
+    const problems = getWorksheetPdfProblems();
+    const WEIGHT_LIMIT = 15;
+    const weightOf = (p) => (p.items || []).length + Math.ceil((p.explanation || '').length / 150);
+    const pages = [];
+    let current = [];
+    let currentWeight = 0;
+    problems.forEach(p => {
+      const w = weightOf(p);
+      if (current.length > 0 && currentWeight + w > WEIGHT_LIMIT) {
+        pages.push(current);
+        current = [];
+        currentWeight = 0;
+      }
+      current.push(p);
+      currentWeight += w;
+    });
+    if (current.length > 0) pages.push(current);
+    return pages;
   };
 
   const [currentDraftId, setCurrentDraftId] = useState(null);
@@ -566,8 +589,8 @@ export default function App() {
     setIsGenerating(true);
     try {
       const cleanUserName = (userName || '').trim() ? userName.trim().replace(/[/\?%*:|"<>\s]/g, '_') : '名前未入力';
-      const problemCount = getWorksheetPdfProblems().length;
-      const pageIds = Array.from({ length: problemCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
+      const pdfPageCount = getWorksheetPdfPages().length;
+      const pageIds = Array.from({ length: pdfPageCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
       const ok = await renderPagesToPdf(pageIds, meta.pdfWorksheetFileName(cleanUserName));
       setIsGenerating(false);
       if (ok) showToast('設計課題レポートを保存しました');
@@ -1890,7 +1913,7 @@ export default function App() {
 
           {/* 11. ワークシート確認画面・PDF出力 */}
           {step === 'worksheetReview' && meta.worksheet && (() => {
-            const pdfProblems = getWorksheetPdfProblems();
+            const pdfPages = getWorksheetPdfPages();
             const { correct: wsCorrect, total: wsTotal } = getWorksheetScoreSummary();
             return (
             <div className="animate-fade-in p-4 md:p-6 lg:p-8">
@@ -1923,6 +1946,9 @@ export default function App() {
                       <div key={problem.id} className="bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-100 space-y-2.5 text-[12px] md:text-sm w-full">
                         <p className="font-black text-[#cb563e]">{problem.label}</p>
                         {problem.items.map(item => {
+                          if (item.type === 'note') {
+                            return <p key={item.key} className="font-bold text-[#182349]">{item.label}</p>;
+                          }
                           const val = worksheetAnswers[item.key];
                           const result = getWorksheetItemResult(item, val);
                           const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
@@ -1965,37 +1991,44 @@ export default function App() {
                   </div>
                   <h2 style={{ fontSize: '14px', fontWeight: 900, color: COLORS.text, margin: 0 }}>{meta.worksheet.heading}</h2>
                 </div>
-                {pdfProblems.map((problem, pIdx) => (
-                  <div key={problem.id} id={`pdf-worksheet-page-${pIdx + 2}`} style={pdfPageContainerStyle}>
-                    <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                      <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
-                      <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.accent, margin: '2px 0 0 0' }}>{problem.stepNumber ? `${problem.stepNumber}｜${problem.stepTitle}` : ''}</p>
-                    </div>
-                    <h3 style={{ fontSize: '15px', fontWeight: '900', color: COLORS.text, marginBottom: '8px' }}>{problem.label}</h3>
-                    {problem.lead && <p style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{problem.lead}</p>}
-                    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.6' }}>
-                      {problem.items.map(item => {
-                        const val = worksheetAnswers[item.key];
-                        const result = getWorksheetItemResult(item, val);
-                        const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
-                        return (
-                          <div key={item.key} style={{ marginBottom: '6px' }}>
-                            <strong>{item.label}：</strong>
-                            {item.type === 'text' ? (
-                              <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{val || '未入力'}</span>
-                            ) : (
-                              <span style={{ color: result === true ? '#1d4ed8' : result === false ? '#dc2626' : '#334155' }}>{displayVal}{result === true ? ' ✓' : result === false ? ' ×' : ''}</span>
-                            )}
+                {pdfPages.map((pageProblems, pageIdx) => (
+                  <div key={pageIdx} id={`pdf-worksheet-page-${pageIdx + 2}`} style={pdfPageContainerStyle}>
+                    {pageProblems.map((problem, pIdx) => (
+                      <div key={problem.id} style={{ marginBottom: pIdx < pageProblems.length - 1 ? '18px' : 0, paddingBottom: pIdx < pageProblems.length - 1 ? '18px' : 0, borderBottom: pIdx < pageProblems.length - 1 ? '1px dashed #e2e8f0' : 'none' }}>
+                        <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                          <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+                          <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.accent, margin: '2px 0 0 0' }}>{problem.stepNumber ? `${problem.stepNumber}｜${problem.stepTitle}` : ''}</p>
+                        </div>
+                        <h3 style={{ fontSize: '15px', fontWeight: '900', color: COLORS.text, marginBottom: '8px' }}>{problem.label}</h3>
+                        {problem.lead && <p style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{problem.lead}</p>}
+                        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.6' }}>
+                          {problem.items.map(item => {
+                            if (item.type === 'note') {
+                              return <div key={item.key} style={{ marginBottom: '6px' }}><strong>{item.label}</strong></div>;
+                            }
+                            const val = worksheetAnswers[item.key];
+                            const result = getWorksheetItemResult(item, val);
+                            const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
+                            return (
+                              <div key={item.key} style={{ marginBottom: '6px' }}>
+                                <strong>{item.label}：</strong>
+                                {item.type === 'text' ? (
+                                  <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{val || '未入力'}</span>
+                                ) : (
+                                  <span style={{ color: result === true ? '#1d4ed8' : result === false ? '#dc2626' : '#334155' }}>{displayVal}{result === true ? ' ✓' : result === false ? ' ×' : ''}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {problem.explanation && (
+                          <div style={{ marginTop: '10px', backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px' }}>
+                            <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 4px 0' }}>▼ 解説・回答例</p>
+                            <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{problem.explanation}</p>
                           </div>
-                        );
-                      })}
-                    </div>
-                    {problem.explanation && (
-                      <div style={{ marginTop: '10px', backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px' }}>
-                        <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 4px 0' }}>▼ 解説・回答例</p>
-                        <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{problem.explanation}</p>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 ))}
               </div>

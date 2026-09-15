@@ -174,6 +174,44 @@ export default function App() {
     return pages;
   };
 
+  // 問題10PDFの1問題ぶんのブロックを描画する（表紙ページ・以降のページ共通で使う）。
+  const renderWorksheetPdfProblemBlock = (problem, isLast) => (
+    <div key={problem.id} style={{ marginBottom: isLast ? 0 : '18px', paddingBottom: isLast ? 0 : '18px', borderBottom: isLast ? 'none' : '1px dashed #e2e8f0' }}>
+      <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+        <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
+        <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.accent, margin: '2px 0 0 0' }}>{problem.stepNumber ? `${problem.stepNumber}｜${problem.stepTitle}` : ''}</p>
+      </div>
+      <h3 style={{ fontSize: '15px', fontWeight: '900', color: COLORS.text, marginBottom: '8px' }}>{problem.label}</h3>
+      {problem.lead && <p style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{problem.lead}</p>}
+      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.6' }}>
+        {problem.items.map(item => {
+          if (item.type === 'note') {
+            return <div key={item.key} style={{ marginBottom: '6px' }}><strong>{item.label}</strong></div>;
+          }
+          const val = worksheetAnswers[item.key];
+          const result = getWorksheetItemResult(item, val);
+          const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
+          return (
+            <div key={item.key} style={{ marginBottom: '6px' }}>
+              <strong>{item.label}：</strong>
+              {item.type === 'text' ? (
+                <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{val || '未入力'}</span>
+              ) : (
+                <span style={{ color: result === true ? '#1d4ed8' : result === false ? '#dc2626' : '#334155' }}>{displayVal}{result === true ? ' ✓' : result === false ? ' ×' : ''}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {problem.explanation && (
+        <div style={{ marginTop: '10px', backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px' }}>
+          <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 4px 0' }}>▼ 解説・回答例</p>
+          <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{problem.explanation}</p>
+        </div>
+      )}
+    </div>
+  );
+
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [currentDraftName, setCurrentDraftName] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState('');
@@ -590,7 +628,7 @@ export default function App() {
     try {
       const cleanUserName = (userName || '').trim() ? userName.trim().replace(/[/\?%*:|"<>\s]/g, '_') : '名前未入力';
       const pdfPageCount = getWorksheetPdfPages().length;
-      const pageIds = Array.from({ length: pdfPageCount + 1 }, (_, i) => `pdf-worksheet-page-${i + 1}`);
+      const pageIds = Array.from({ length: pdfPageCount }, (_, i) => `pdf-worksheet-page-${i + 1}`);
       const ok = await renderPagesToPdf(pageIds, meta.pdfWorksheetFileName(cleanUserName));
       setIsGenerating(false);
       if (ok) showToast('設計課題レポートを保存しました');
@@ -1989,46 +2027,12 @@ export default function App() {
                       <p style={{ fontSize: '13px', fontWeight: 'bold', color: COLORS.text, margin: '10px 0 0 0' }}>選択式の項目：{wsCorrect} / {wsTotal} 正解</p>
                     )}
                   </div>
-                  <h2 style={{ fontSize: '14px', fontWeight: 900, color: COLORS.text, margin: 0 }}>{meta.worksheet.heading}</h2>
+                  <h2 style={{ fontSize: '14px', fontWeight: 900, color: COLORS.text, margin: '0 0 14px 0' }}>{meta.worksheet.heading}</h2>
+                  {(pdfPages[0] || []).map((problem, pIdx, arr) => renderWorksheetPdfProblemBlock(problem, pIdx === arr.length - 1))}
                 </div>
-                {pdfPages.map((pageProblems, pageIdx) => (
+                {pdfPages.slice(1).map((pageProblems, pageIdx) => (
                   <div key={pageIdx} id={`pdf-worksheet-page-${pageIdx + 2}`} style={pdfPageContainerStyle}>
-                    {pageProblems.map((problem, pIdx) => (
-                      <div key={problem.id} style={{ marginBottom: pIdx < pageProblems.length - 1 ? '18px' : 0, paddingBottom: pIdx < pageProblems.length - 1 ? '18px' : 0, borderBottom: pIdx < pageProblems.length - 1 ? '1px dashed #e2e8f0' : 'none' }}>
-                        <div style={{ marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>{meta.worksheetPdfFooterNote}</p>
-                          <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.accent, margin: '2px 0 0 0' }}>{problem.stepNumber ? `${problem.stepNumber}｜${problem.stepTitle}` : ''}</p>
-                        </div>
-                        <h3 style={{ fontSize: '15px', fontWeight: '900', color: COLORS.text, marginBottom: '8px' }}>{problem.label}</h3>
-                        {problem.lead && <p style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{problem.lead}</p>}
-                        <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', fontSize: '10px', lineHeight: '1.6' }}>
-                          {problem.items.map(item => {
-                            if (item.type === 'note') {
-                              return <div key={item.key} style={{ marginBottom: '6px' }}><strong>{item.label}</strong></div>;
-                            }
-                            const val = worksheetAnswers[item.key];
-                            const result = getWorksheetItemResult(item, val);
-                            const displayVal = item.type === 'number' ? `${val || '未入力'}${val ? (item.unit || '') : ''}` : (val || '未入力');
-                            return (
-                              <div key={item.key} style={{ marginBottom: '6px' }}>
-                                <strong>{item.label}：</strong>
-                                {item.type === 'text' ? (
-                                  <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{val || '未入力'}</span>
-                                ) : (
-                                  <span style={{ color: result === true ? '#1d4ed8' : result === false ? '#dc2626' : '#334155' }}>{displayVal}{result === true ? ' ✓' : result === false ? ' ×' : ''}</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {problem.explanation && (
-                          <div style={{ marginTop: '10px', backgroundColor: '#fffcf9', border: '1px solid #fed7aa', borderRadius: '10px', padding: '10px 14px' }}>
-                            <p style={{ fontSize: '9px', fontWeight: 700, color: COLORS.accent, margin: '0 0 4px 0' }}>▼ 解説・回答例</p>
-                            <p style={{ fontSize: '9px', lineHeight: 1.6, color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>{problem.explanation}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {pageProblems.map((problem, pIdx) => renderWorksheetPdfProblemBlock(problem, pIdx === pageProblems.length - 1))}
                   </div>
                 ))}
               </div>

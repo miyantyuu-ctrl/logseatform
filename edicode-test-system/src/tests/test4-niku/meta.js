@@ -269,7 +269,8 @@ export const meta = {
             items: [
               { key: 'G1', label: '① 今回考慮すべき危害要因は？', type: 'text' },
               { key: 'G2', label: '② その危害要因はどこに存在する可能性がありますか？', type: 'text' },
-              { key: 'G3_time', label: '内部に危害要因が存在する可能性まで考慮する場合、必要な加熱条件は何ですか？（必要な保持時間）', type: 'shortText' },
+              { key: 'G3_temp', label: '③ 内部に危害要因が存在する可能性まで考慮する場合、必要な加熱条件は何ですか？（必要な温度）', type: 'number', unit: '℃', correctRange: [55, 62.5] },
+              { key: 'G3_time', label: '必要な保持時間', type: 'shortText' },
               { key: 'G4', label: '④ 自分がSTEP1で設定した中心温度と、安全条件は両立していますか？', type: 'judgement', options: ['両立している', '調整が必要', '判断できない'], correctValues: ['調整が必要'] },
               { key: 'G5_temp', label: '⑤ 調整が必要な場合：最初に設定した食感・風味のゴールをできるだけ維持しながら、どの条件を変更しますか？（必要な温度）', type: 'number', unit: '℃', correctRange: [55, 62.5] },
               { key: 'G5_time', label: '必要な保持時間', type: 'shortText' },

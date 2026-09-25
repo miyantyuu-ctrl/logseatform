@@ -4,7 +4,10 @@
 !/.gitignore
 !/edicode-test-system/
 !/edicode-test-system-review-before/
+!/edicode-report-system/
 !/.github/
 /edicode-test-system/node_modules/
 /edicode-test-system/dist/
+/edicode-report-system/node_modules/
+/edicode-report-system/dist/
 .DS_Store

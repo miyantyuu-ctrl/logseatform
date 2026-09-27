@@ -26,6 +26,9 @@ export default function App() {
 
   const [photoTaken, setPhotoTaken] = useState(false);
   const [photoSent, setPhotoSent] = useState(false);
+  const [photoDataUrl, setPhotoDataUrl] = useState('');
+  const [photoFileName, setPhotoFileName] = useState('');
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   const [score, setScore] = useState('');
   const [scoreReason, setScoreReason] = useState('');
@@ -74,8 +77,52 @@ export default function App() {
     setDishId('');
   };
 
+  // ---- 写真アップロード：端末負荷とPDFサイズを抑えるため、長辺1280pxに縮小してJPEGに変換 ----
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('画像ファイルを選択してください');
+      return;
+    }
+    setIsPhotoProcessing(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSide = 1280;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.85));
+        setPhotoFileName(file.name);
+        setIsPhotoProcessing(false);
+      };
+      img.onerror = () => {
+        showToast('画像の読み込みに失敗しました');
+        setIsPhotoProcessing(false);
+      };
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => {
+      showToast('画像の読み込みに失敗しました');
+      setIsPhotoProcessing(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoRemove = () => {
+    setPhotoDataUrl('');
+    setPhotoFileName('');
+  };
+
   const canProceedStart = userName.trim() && dishId;
-  const canProceedQ1 = photoTaken && photoSent;
+  const canProceedQ1 = photoTaken && photoSent && !!photoDataUrl;
   const canProceedQ2 = score !== '' && !Number.isNaN(Number(score)) && Number(score) >= 0 && Number(score) <= 100 && scoreReason.trim();
   const canProceedQ3 = learnings.trim();
 
@@ -288,6 +335,32 @@ export default function App() {
                       <span className="text-[13px] md:text-[14px] font-bold text-[#182349]">{meta.section1.checklist[1]}</span>
                     </label>
                   </div>
+
+                  <div className="mt-5 pt-4 border-t border-orange-100">
+                    <p className="text-[12px] md:text-[13px] font-black text-[#182349] mb-1">写真をアップロード</p>
+                    <p className="text-[10px] md:text-[11px] text-gray-400 mb-3">この写真は報告書PDFに添付されます。</p>
+
+                    {!photoDataUrl ? (
+                      <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-orange-200 rounded-2xl py-8 px-4 cursor-pointer bg-white hover:bg-orange-50/40 transition-all">
+                        <Camera className="w-7 h-7 text-[#cb563e]" />
+                        <span className="text-[12px] md:text-[13px] font-bold text-[#cb563e]">
+                          {isPhotoProcessing ? '処理中...' : 'タップして写真を選択'}
+                        </span>
+                        <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} disabled={isPhotoProcessing} className="hidden" />
+                      </label>
+                    ) : (
+                      <div className="flex items-center gap-3 bg-white rounded-2xl border border-orange-100 p-3">
+                        <img src={photoDataUrl} alt="選択した写真" className="w-16 h-16 object-cover rounded-xl border border-gray-100 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold text-[#182349] truncate">{photoFileName || '選択済みの写真'}</p>
+                          <p className="text-[10px] text-gray-400">アップロード済み</p>
+                        </div>
+                        <button type="button" onClick={handlePhotoRemove} className="text-[11px] font-bold text-gray-400 hover:text-[#cb563e] flex-shrink-0 px-2 py-1">
+                          変更
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-10">
@@ -412,10 +485,13 @@ export default function App() {
 
                 <div>
                   <SectionHeading>{meta.section1.title}</SectionHeading>
-                  <div className="mt-2">
+                  <div className="mt-2 space-y-2">
                     <ReviewTextBox>
                       {`${photoTaken ? '☑' : '☐'} ${meta.section1.checklist[0]}\n${photoSent ? '☑' : '☐'} ${meta.section1.checklist[1]}`}
                     </ReviewTextBox>
+                    {photoDataUrl && (
+                      <img src={photoDataUrl} alt="提出写真プレビュー" className="w-full max-w-[220px] rounded-xl border border-gray-100" />
+                    )}
                   </div>
                 </div>
 
@@ -501,21 +577,22 @@ export default function App() {
                     padding: 0
                   }}
                 >
-                  <div style={{ position: 'absolute', left: '28mm', right: '28mm', top: '60mm', bottom: '60mm', display: 'flex', flexDirection: 'column' }}>
-                    <h1 style={{ fontSize: '66.7pt', fontWeight: 900, color: '#1c1c2e', letterSpacing: '0.35em', textAlign: 'center', margin: '0 0 12mm 0', fontFamily: certFontFamily }}>完了証</h1>
-                    <p style={{ fontSize: '26.9pt', fontWeight: 700, color: COLORS.text, textAlign: 'center', margin: '0 0 3mm 0', fontFamily: certFontFamily }}>{meta.certChapterNumber}</p>
-                    <p style={{ fontSize: '26.9pt', fontWeight: 900, color: COLORS.text, textAlign: 'center', margin: '0 0 18mm 0', fontFamily: certFontFamily }}>{meta.certCourseTitle}</p>
-                    <p style={{ fontSize: '32.1pt', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: '0 0 auto 0', fontFamily: certFontFamily }}>{userName || 'ご入力者'} 殿</p>
-                    <p style={{ fontSize: '19.5pt', lineHeight: 2.1, color: '#334155', textAlign: 'center', margin: '0 0 auto 0', fontFamily: certFontFamily }}>
-                      あなたは食のプロフェッショナル養成講座の「{meta.certChapterNumber} {meta.certCourseTitle}」において<br />
-                      「{dish?.label}」の調理チャレンジを完了し、<span style={{ whiteSpace: 'nowrap' }}>完了報告</span>が確認できましたので<br />
-                      ここに証します。
+                  <div style={{ position: 'absolute', left: '28mm', right: '28mm', top: '66mm', bottom: '74mm', display: 'flex', flexDirection: 'column' }}>
+                    <h1 style={{ fontSize: '54pt', fontWeight: 900, color: '#1c1c2e', letterSpacing: '0.32em', textAlign: 'center', margin: '0 0 9mm 0', fontFamily: certFontFamily }}>完了証</h1>
+                    <p style={{ fontSize: '22pt', fontWeight: 700, color: COLORS.text, textAlign: 'center', margin: '0 0 2mm 0', fontFamily: certFontFamily }}>{meta.certChapterNumber}</p>
+                    <p style={{ fontSize: '22pt', fontWeight: 900, color: COLORS.text, textAlign: 'center', margin: '0 0 12mm 0', fontFamily: certFontFamily }}>{meta.certCourseTitle}</p>
+                    <p style={{ fontSize: '26pt', fontWeight: 700, color: COLORS.text, textAlign: 'right', margin: '0 0 auto 0', fontFamily: certFontFamily }}>{userName || 'ご入力者'} 殿</p>
+                    <p style={{ fontSize: '16pt', lineHeight: 1.9, color: '#334155', textAlign: 'center', margin: '0 0 auto 0', fontFamily: certFontFamily }}>
+                      あなたは食のプロフェッショナル養成講座の<br />
+                      「{meta.certChapterNumber} {meta.certCourseTitle}」において<br />
+                      「{dish?.label}」の調理チャレンジを完了し、<br />
+                      完了報告が確認できましたので ここに証します。
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                      <p style={{ fontSize: '19.9pt', color: '#334155', margin: 0, fontFamily: certFontFamily }}>{formatReiwaDate()}</p>
+                      <p style={{ fontSize: '16pt', color: '#334155', margin: 0, fontFamily: certFontFamily }}>{formatReiwaDate()}</p>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: '19.9pt', color: '#334155', margin: '0 0 2px 0', fontFamily: certFontFamily }}>{meta.certIssuerRole}</p>
-                        <p style={{ fontSize: '30.1pt', fontWeight: 700, color: COLORS.text, margin: 0, fontFamily: certFontFamily }}>{meta.certIssuerName}</p>
+                        <p style={{ fontSize: '16pt', color: '#334155', margin: '0 0 2px 0', fontFamily: certFontFamily }}>{meta.certIssuerRole}</p>
+                        <p style={{ fontSize: '24pt', fontWeight: 700, color: COLORS.text, margin: 0, fontFamily: certFontFamily }}>{meta.certIssuerName}</p>
                       </div>
                     </div>
                   </div>
@@ -533,25 +610,34 @@ export default function App() {
 
                   <div style={{ marginBottom: '5mm' }}>
                     <p style={{ fontSize: '11px', fontWeight: 900, color: '#94a3b8', margin: '0 0 2mm 0' }}>{meta.dishFieldLabel}</p>
-                    <p style={{ fontSize: '15px', fontWeight: 700, color: COLORS.text, margin: 0 }}>{dish?.label}</p>
+                    <p style={{ fontSize: '15px', fontWeight: 700, color: COLORS.text, margin: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{dish?.label}</p>
                   </div>
 
                   <div style={{ border: '1px solid #e2e8f0', borderLeft: `6px solid #2563eb`, borderRadius: '10px', padding: '5mm', marginBottom: '4mm' }}>
                     <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.text, margin: '0 0 2mm 0' }}>{meta.section1.title}</p>
-                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap' }}>
+                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
                       {`${photoTaken ? '✓' : '×'} ${meta.section1.checklist[0]}　　${photoSent ? '✓' : '×'} ${meta.section1.checklist[1]}`}
                     </p>
+                    {photoDataUrl && (
+                      <div style={{ marginTop: '3mm' }}>
+                        <img
+                          src={photoDataUrl}
+                          alt="提出写真"
+                          style={{ maxWidth: '80mm', maxHeight: '55mm', display: 'block', borderRadius: '4px', border: '1px solid #e2e8f0', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ border: '1px solid #e2e8f0', borderLeft: `6px solid #2563eb`, borderRadius: '10px', padding: '5mm', marginBottom: '4mm' }}>
                     <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.text, margin: '0 0 2mm 0' }}>{meta.section2.title}</p>
                     <p style={{ fontSize: '13px', fontWeight: 900, color: '#cb563e', margin: '0 0 2mm 0' }}>{`${meta.section2.scorePrefix}${score}${meta.section2.scoreSuffix}`}</p>
-                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{scoreReason}</p>
+                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>{scoreReason}</p>
                   </div>
 
                   <div style={{ border: '1px solid #e2e8f0', borderLeft: `6px solid #2563eb`, borderRadius: '10px', padding: '5mm', flex: 1 }}>
                     <p style={{ fontSize: '11px', fontWeight: 900, color: COLORS.text, margin: '0 0 2mm 0' }}>{meta.section3.title}</p>
-                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{learnings}</p>
+                    <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>{learnings}</p>
                   </div>
 
                   <p style={{ fontSize: '9px', color: '#cbd5e1', textAlign: 'center', margin: '6mm 0 0 0' }}>{meta.pageFooterLabel}</p>

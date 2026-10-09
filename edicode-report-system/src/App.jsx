@@ -138,7 +138,114 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
-  const renderPagesToPdf = async (pageIds, fileName) => {
+  // ---- 報告ページ用：内容が長いときに潰さず、複数のA4ページに分割するための切れ目を計算する ----
+  // 1) 枠（カード）の途中で切らずに済む場合は、枠と枠のすき間で改ページ
+  // 2) 1枚に収まらない長い枠は、行と行のすき間で改ページ（文字の途中では切らない）
+  // 切る位置は、画面上の計測値ではなく「描画済み画像の中で文字が一切ない横帯」を探して決める。
+  // （html2canvasは行間の広い文字を計測位置より下に描くため、計測値で切ると文字の途中で切れてしまう）
+  const A4_W_MM = 210;
+  const A4_H_MM = 297;
+  const PAGE_MARGIN_MM = 12;
+
+  const snapToWhitespace = (canvas, target, minY, mmPx) => {
+    const ctx = canvas.getContext('2d');
+    const x0 = Math.round(20 * mmPx);
+    const x1 = Math.round(190 * mmPx);
+    const w = x1 - x0;
+    const searchTop = Math.max(Math.ceil(minY), Math.floor(target - 30 * mmPx));
+    const h = Math.floor(target) - searchTop;
+    if (h < 8) return target;
+    const px = ctx.getImageData(x0, searchTop, w, h).data;
+    const MIN_BAND = 6;
+    let run = 0;
+    for (let r = h - 1; r >= 0; r--) {
+      let blank = true;
+      const base = r * w * 4;
+      for (let c = 0; c < w; c++) {
+        const i = base + c * 4;
+        if (px[i] < 235 || px[i + 1] < 235 || px[i + 2] < 235) { blank = false; break; }
+      }
+      if (blank) {
+        run++;
+      } else {
+        if (run >= MIN_BAND) return searchTop + r + 1 + Math.floor(run / 2);
+        run = 0;
+      }
+    }
+    if (run >= MIN_BAND) return searchTop + Math.floor(run / 2);
+    return target;
+  };
+
+  // 下端の余白（白い帯）を除いた「実際に内容がある最下端」を探す
+  const findContentBottom = (canvas, mmPx) => {
+    const ctx = canvas.getContext('2d');
+    const x0 = Math.round(20 * mmPx);
+    const w = Math.round(190 * mmPx) - x0;
+    const h = Math.min(canvas.height, Math.floor(40 * mmPx));
+    const y0 = canvas.height - h;
+    const px = ctx.getImageData(x0, y0, w, h).data;
+    for (let r = h - 1; r >= 0; r--) {
+      const base = r * w * 4;
+      for (let c = 0; c < w; c++) {
+        const i = base + c * 4;
+        if (px[i] < 235 || px[i + 1] < 235 || px[i + 2] < 235) return y0 + r + 1;
+      }
+    }
+    return canvas.height;
+  };
+
+  const computePageSlices = (element, canvas) => {
+    const rootRect = element.getBoundingClientRect();
+    const scale = canvas.width / rootRect.width;
+    const mmPx = canvas.width / A4_W_MM;
+    const canvasH = canvas.height;
+    const fullPageH = A4_H_MM * mmPx;
+
+    // 1枚に収まる場合は従来どおり（余白の削りなし）
+    if (canvasH <= fullPageH + 2) {
+      return [{ sy: 0, sh: canvasH, dyMm: 0 }];
+    }
+
+    // 最後のページが白紙にならないよう、内容の最下端が収まれば、そこを最終ページとする
+    const contentBottom = findContentBottom(canvas, mmPx);
+    const total = Math.min(canvasH, contentBottom + 6 * mmPx);
+
+    const blocks = Array.from(element.children).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: (r.top - rootRect.top) * scale, bottom: (r.bottom - rootRect.top) * scale };
+    });
+
+    const slices = [];
+    let start = 0;
+    let pageIdx = 0;
+    while (start < contentBottom - 2 && pageIdx < 30) {
+      const topMargin = pageIdx === 0 ? 0 : PAGE_MARGIN_MM * mmPx;
+      const avail = fullPageH - topMargin - PAGE_MARGIN_MM * mmPx;
+      const limit = start + avail;
+      let end;
+
+      if (limit >= contentBottom) {
+        end = total;
+      } else {
+        const straddle = blocks.find((b) => b.top < limit && b.bottom > limit);
+        const freshPageH = fullPageH - 2 * PAGE_MARGIN_MM * mmPx;
+        const gapPx = 8 * scale;
+        // 枠ごと次ページへ送れるならそのすき間、無理なら上限付近の「文字のない横帯」で切る
+        const target = (straddle && straddle.bottom - straddle.top <= freshPageH && straddle.top - gapPx > start + 20 * mmPx)
+          ? straddle.top - gapPx
+          : limit;
+        end = snapToWhitespace(canvas, target, start + 20 * mmPx, mmPx);
+        if (end <= start + 10 * mmPx) end = limit;
+      }
+      slices.push({ sy: start, sh: end - start, dyMm: topMargin / mmPx });
+      start = end;
+      pageIdx++;
+    }
+    return slices;
+  };
+
+  // pageSpecs: 'id' もしくは { id, paginate: true }（paginate は内容の高さに応じて複数ページに分割）
+  const renderPagesToPdf = async (pageSpecs, fileName) => {
     if (!window.html2canvas || !window.jspdf) {
       showToast('PDF生成機能が準備できていません。通信環境を確認し再読み込みしてください。');
       return false;
@@ -147,19 +254,42 @@ export default function App() {
     const renderScale = isMobile ? 1.5 : 2;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
+    let pageCount = 0;
 
-    for (let i = 0; i < pageIds.length; i++) {
-      const element = document.getElementById(pageIds[i]);
+    for (let i = 0; i < pageSpecs.length; i++) {
+      const spec = typeof pageSpecs[i] === 'string' ? { id: pageSpecs[i] } : pageSpecs[i];
+      const element = document.getElementById(spec.id);
       if (!element) continue;
-      if (i > 0) pdf.addPage();
       const canvas = await window.html2canvas(element, {
         scale: renderScale,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.9);
-      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+
+      if (!spec.paginate) {
+        if (pageCount > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, A4_W_MM, A4_H_MM);
+        pageCount++;
+      } else {
+        const mmPx = canvas.width / A4_W_MM;
+        const slices = computePageSlices(element, canvas);
+        for (const s of slices) {
+          if (pageCount > 0) pdf.addPage();
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = Math.max(1, Math.round(s.sh));
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, Math.round(s.sy), canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
+          // 縦横比を保ったまま貼る（高さは切り出した分だけ）
+          pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, s.dyMm, A4_W_MM, sliceCanvas.height / mmPx);
+          sliceCanvas.width = 0;
+          sliceCanvas.height = 0;
+          pageCount++;
+        }
+      }
       canvas.width = 0;
       canvas.height = 0;
     }
@@ -183,7 +313,7 @@ export default function App() {
     try {
       const cleanUserName = (userName || '').trim() ? userName.trim().replace(/[/\?%*:|"<>\s]/g, '_') : '名前未入力';
       const ok = await renderPagesToPdf(
-        ['pdf-cert-page-1', 'pdf-report-page-1'],
+        ['pdf-cert-page-1', { id: 'pdf-report-page-1', paginate: true }],
         meta.pdfFileName(cleanUserName, dish?.label)
       );
       if (ok) showToast('完了証と報告内容を保存しました');

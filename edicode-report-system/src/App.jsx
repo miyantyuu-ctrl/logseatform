@@ -588,7 +588,7 @@ export default function App() {
                       「{dish?.label}」の調理チャレンジを完了し、<br />
                       完了報告が確認できましたので ここに証します。
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', top: '21mm' }}>
                       <p style={{ fontSize: '16pt', color: '#334155', margin: 0, fontFamily: certFontFamily }}>{formatReiwaDate()}</p>
                       <div style={{ textAlign: 'right' }}>
                         <p style={{ fontSize: '16pt', color: '#334155', margin: '0 0 2px 0', fontFamily: certFontFamily }}>{meta.certIssuerRole}</p>

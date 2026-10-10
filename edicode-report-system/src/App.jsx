@@ -474,9 +474,9 @@ export default function App() {
                       <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-orange-200 rounded-2xl py-8 px-4 cursor-pointer bg-white hover:bg-orange-50/40 transition-all">
                         <Camera className="w-7 h-7 text-[#cb563e]" />
                         <span className="text-[12px] md:text-[13px] font-bold text-[#cb563e]">
-                          {isPhotoProcessing ? '処理中...' : 'タップして写真を選択'}
+                          {isPhotoProcessing ? '処理中...' : 'タップして写真を選択（写真フォルダから選べます）'}
                         </span>
-                        <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} disabled={isPhotoProcessing} className="hidden" />
+                        <input type="file" accept="image/*" onChange={handlePhotoSelect} disabled={isPhotoProcessing} className="hidden" />
                       </label>
                     ) : (
                       <div className="flex items-center gap-3 bg-white rounded-2xl border border-orange-100 p-3">
